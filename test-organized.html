@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Music Staff with Notes</title>
+  <link rel="stylesheet" href="test-styles.css">
+</head>
+<body>
+  <h1>Whole, Half, and Quarter Notes (4/4 Time)</h1>
+
+  <div class="staff-wrapper">
+    <svg id="music-staff" class="staff" width="8000" viewBox="0 0 8000 160" preserveAspectRatio="xMinYMin meet">
+      <g stroke="black" stroke-width="1" id="staff-lines"></g>
+      <g stroke="black" stroke-width="1" id="bar-lines"></g>
+      <g id="note-group" fill="black"></g>
+    </svg>
+  </div>
+
+  <div class="note-name-section">
+    <h2>Note Names</h2>
+    <div class="note-names">
+      <div>A</div><div>A♯ / B♭</div><div>B</div><div>C</div><div>C♯ / D♭</div>
+      <div>D</div><div>D♯ / E♭</div><div>E</div><div>F</div><div>F♯ / G♭</div>
+      <div>G</div><div>G♯ / A♭</div>
+    </div>
+  </div>
+
+  <script src="test-script.js"></script>
+</body>
+</html>
