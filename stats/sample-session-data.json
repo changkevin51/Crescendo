@@ -1,0 +1,191 @@
+{
+  "gameSession": {
+    "sessionId": "session_1726234880123_abc123def",
+    "startTime": "2024-09-13T13:01:20.123Z",
+    "endTime": "2024-09-13T13:05:45.678Z",
+    "difficulty": "medium",
+    "timePerNote": 5,
+    "totalScore": 1250,
+    "totalNotes": 8,
+    "correctNotes": 6,
+    "accuracy": 75.0,
+    "maxStreak": 4,
+    "sessionDuration": 265555
+  },
+  "noteEvents": [
+    {
+      "noteId": "note_session_1726234880123_abc123def_1",
+      "sessionId": "session_1726234880123_abc123def",
+      "targetNote": "C",
+      "targetOctave": 4,
+      "targetFrequency": 261.63,
+      "targetNoteString": "C4",
+      "difficulty": "medium",
+      "timeAllowed": 5000,
+      "startTime": "2024-09-13T13:01:25.123Z",
+      "startTimestamp": 1726234885123,
+      "endTime": "2024-09-13T13:01:27.456Z",
+      "endTimestamp": 1726234887456,
+      "duration": 2333,
+      "outcome": "correct",
+      "detectedNote": "C",
+      "detectedOctave": 4,
+      "detectedFrequency": 262.1,
+      "detectedNoteString": "C4",
+      "accuracyCents": 3,
+      "frequencyAccuracy": 98.2,
+      "responseTime": 850,
+      "holdDuration": 1483,
+      "averageVolume": 45.2,
+      "maxVolume": 67.8,
+      "volumeStability": 0.15,
+      "pitchStability": 2.1,
+      "confidenceScore": 0.89,
+      "pointsEarned": 145,
+      "streakAtTime": 1,
+      "timeBonus": 15,
+      "accuracyBonus": 5,
+      "timingAnalysis": {
+        "responseTime": 850,
+        "holdDuration": 1483,
+        "sustainQuality": "excellent",
+        "timingConsistency": 92.5
+      },
+      "volumeAnalysis": {
+        "averageVolume": 45.2,
+        "maxVolume": 67.8,
+        "minVolume": 32.1,
+        "volumeStability": 0.15,
+        "volumeConsistency": "excellent"
+      },
+      "pitchAnalysis": {
+        "pitchStability": 2.1,
+        "pitchAccuracy": 98.2,
+        "pitchConsistency": "excellent"
+      },
+      "performanceQuality": {
+        "score": 95,
+        "rating": "excellent",
+        "breakdown": {
+          "timing": "excellent",
+          "volume": "excellent",
+          "pitch": "excellent"
+        }
+      },
+      "errorType": null,
+      "errorDetails": {},
+      "continuousMetrics": {
+        "totalSamples": 47,
+        "correctSamples": 30,
+        "avgConfidence": 0.82,
+        "avgVolume": 45.2,
+        "stabilityScore": 0
+      },
+      "detectionSamples": [
+        {
+          "timestamp": "2024-09-13T13:01:25.973Z",
+          "relativeTime": 850,
+          "frequency": 262.1,
+          "note": "C",
+          "octave": 4,
+          "noteString": "C4",
+          "confidence": 0.89,
+          "volume": 45.2,
+          "isCorrectNote": true,
+          "centsDifference": 3,
+          "volumeCategory": "moderate",
+          "detectionQuality": "excellent"
+        }
+      ]
+    },
+    {
+      "noteId": "note_session_1726234880123_abc123def_2",
+      "sessionId": "session_1726234880123_abc123def",
+      "targetNote": "F#",
+      "targetOctave": 5,
+      "targetFrequency": 739.99,
+      "targetNoteString": "F#5",
+      "difficulty": "medium",
+      "timeAllowed": 5000,
+      "startTime": "2024-09-13T13:01:30.123Z",
+      "startTimestamp": 1726234890123,
+      "endTime": "2024-09-13T13:01:35.123Z",
+      "endTimestamp": 1726234895123,
+      "duration": 5000,
+      "outcome": "timeout",
+      "detectedNote": null,
+      "detectedOctave": null,
+      "detectedFrequency": null,
+      "detectedNoteString": null,
+      "accuracyCents": null,
+      "frequencyAccuracy": null,
+      "responseTime": null,
+      "holdDuration": 0,
+      "averageVolume": 12.3,
+      "maxVolume": 28.5,
+      "volumeStability": 0.85,
+      "pitchStability": 0,
+      "confidenceScore": null,
+      "pointsEarned": 0,
+      "streakAtTime": 0,
+      "timeBonus": 0,
+      "accuracyBonus": 0,
+      "timingAnalysis": {
+        "responseTime": null,
+        "holdDuration": 0,
+        "sustainQuality": "none",
+        "timingConsistency": 0
+      },
+      "volumeAnalysis": {
+        "averageVolume": 12.3,
+        "maxVolume": 28.5,
+        "minVolume": 5.2,
+        "volumeStability": 0.85,
+        "volumeConsistency": "poor"
+      },
+      "pitchAnalysis": {
+        "pitchStability": 0,
+        "pitchAccuracy": 0,
+        "pitchConsistency": "none"
+      },
+      "performanceQuality": {
+        "score": 0,
+        "rating": "poor",
+        "breakdown": {
+          "timing": "none",
+          "volume": "poor",
+          "pitch": "none"
+        }
+      },
+      "errorType": "no_input",
+      "errorDetails": {
+        "reason": "timeout",
+        "samplesDetected": 15,
+        "avgVolume": 12.3
+      },
+      "continuousMetrics": {
+        "totalSamples": 100,
+        "correctSamples": 0,
+        "avgConfidence": 0.15,
+        "avgVolume": 12.3,
+        "stabilityScore": 0
+      },
+      "detectionSamples": [
+        {
+          "timestamp": "2024-09-13T13:01:30.173Z",
+          "relativeTime": 50,
+          "frequency": 0,
+          "note": null,
+          "octave": null,
+          "noteString": null,
+          "confidence": 0,
+          "volume": 8.2,
+          "isCorrectNote": false,
+          "centsDifference": null,
+          "volumeCategory": "silent",
+          "detectionQuality": "very_poor"
+        }
+      ]
+    }
+  ]
+}
