@@ -35,13 +35,120 @@ svg.staff {
 }
 
 .score-display {
-  margin-bottom: 20px;
+  text-align: center;
+  margin: 20px 0;
   font-size: 18px;
   font-weight: bold;
 }
 
 .score-display span {
-  margin-right: 20px;
+  margin: 0 20px;
+  padding: 10px 15px;
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.current-detection-display {
+  text-align: center;
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.detection-info {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  align-items: center;
+}
+
+.detected-note-display, .detected-frequency-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.detected-note-display .label, .detected-frequency-display .label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+#current-detected-note {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2196F3;
+  min-width: 60px;
+}
+
+#current-detected-frequency {
+  font-size: 18px;
+  font-weight: bold;
+  color: #4CAF50;
+  min-width: 80px;
+}
+
+.game-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.control-btn {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+#pause-btn {
+  background-color: #FF9800;
+  color: white;
+}
+
+#pause-btn:hover {
+  background-color: #F57C00;
+}
+
+#pause-btn.paused {
+  background-color: #4CAF50;
+}
+
+#pause-btn.paused:hover {
+  background-color: #45a049;
+}
+
+.tempo-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tempo-control label {
+  font-weight: bold;
+  color: #333;
+}
+
+#tempo-slider {
+  width: 120px;
+}
+
+#tempo-value {
+  font-weight: bold;
+  color: #2196F3;
+  min-width: 40px;
 }
 
 .judgment-line {
@@ -52,4 +159,13 @@ svg.staff {
   width: 3px;
   background-color: red;
   z-index: 10;
+}
+
+.note-letter {
+  font-size: 14px;
+  font-weight: bold;
+  fill: #333;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
 }
