@@ -323,6 +323,29 @@ h1 {
   color: var(--accent-error);
 }
 
+.fade-text {
+  animation: fadeInOut 3s ease-in-out forwards;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    font-size: 40px;
+  }
+  20% {
+    opacity: 1;
+    font-size: 40px;
+  }
+  80% {
+    opacity: 1;
+    font-size: 40px;
+  }
+  100% {
+    opacity: 0;
+    font-size: 60px;
+  }
+}
+
 /* Flash animations for score updates */
 @keyframes flash-correct {
   0% {

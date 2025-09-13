@@ -34,6 +34,7 @@ let pausedTime = 0;
 let totalPausedTime = 0;
 let animationId = null;
 let detectionInterval = null;
+let level = 1;
 
 // Note detection state
 let lastDetectedNote = null;
@@ -216,6 +217,26 @@ async function initializeGame() {
   }
 }
 
+function showLevelText() {
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("x", 200);
+  text.setAttribute("y", lineYs[2]);
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "middle");
+  text.setAttribute("font-size", "40");
+  text.setAttribute("fill", "black");
+  text.setAttribute("class", "fade-text");
+  text.textContent = `Level ${level}`;
+  svg.appendChild(text);
+  
+  // Remove the text after animation completes
+  setTimeout(() => {
+      if (text.parentNode) {
+          text.parentNode.removeChild(text);
+      }
+  }, 3000); // Remove after 3 seconds
+}
+
 function startGame() {
   gameStartTime = Date.now();
   isGameRunning = true;
@@ -239,6 +260,8 @@ function startGame() {
     }
   `;
   document.head.appendChild(style);
+  
+  showLevelText();
   
   // Start judgment loop
   gameLoop();
@@ -619,3 +642,11 @@ if (tempoSlider) {
 
 // Start the game when page loads
 window.addEventListener('load', initializeGame);
+
+// Add event listener to detect when one iteration of the animation completes
+noteGroup.addEventListener('animationiteration', function(event) {
+  if (event.animationName === 'scrollLeft') {
+      level++;
+      showLevelText();
+  }
+});
