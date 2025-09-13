@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home - Music Hub</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body class="welcome">
+    <h2>Hello, (Username)</h2>
+
+    <div class="toggle-wrapper">
+    <input type="checkbox" id="gameModeToggle" />
+    <label for="gameModeToggle" class="toggle-container">
+        <div class="toggle-slider"></div>
+        <div class="toggle-labels">
+        <span>Singleplayer</span>
+        <span>Multiplayer</span>
+        </div>
+    </label>
+    </div>
+
+
+
+
+    
+    <div class="search-container">
+        <input type="text" id="instrumentInput" placeholder="Search for an instrument...">
+        <ul id="suggestions"></ul>
+    </div>
+
+    <a href="/logout">Logout</a>
+
+    <script>
+
+        const toggle = document.getElementById('gameModeToggle');
+
+        toggle.addEventListener('change', () => {
+            const mode = toggle.checked ? 'Multiplayer' : 'Singleplayer';
+            console.log("Selected mode:", mode);
+            // Optional: Update UI or redirect
+        });
+
+
+
+
+        const instruments = [
+            'Piano', 'Guitar', 'Violin', 'Drums', 'Saxophone', 'Trumpet', 
+            'Flute', 'Clarinet', 'Bass Guitar', 'Cello', 'Harp', 'Trombone',
+            'French Horn', 'Oboe', 'Bassoon', 'Piccolo', 'Tuba', 'Banjo',
+            'Mandolin', 'Ukulele', 'Harmonica', 'Accordion', 'Xylophone'
+        ];
+
+        const instrumentInput = document.getElementById('instrumentInput');
+        const suggestionsList = document.getElementById('suggestions');
+
+        instrumentInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            
+            if (query.length === 0) {
+                suggestionsList.classList.remove('show');
+                suggestionsList.innerHTML = '';
+                return;
+            }
+
+            const filteredInstruments = instruments.filter(instrument => 
+                instrument.toLowerCase().includes(query)
+            );
+
+            if (filteredInstruments.length > 0) {
+                suggestionsList.innerHTML = filteredInstruments
+                    .map(instrument => `<li>${instrument}</li>`)
+                    .join('');
+                suggestionsList.classList.add('show');
+            } else {
+                suggestionsList.innerHTML = '<li>No instruments found</li>';
+                suggestionsList.classList.add('show');
+            }
+        });
+
+        suggestionsList.addEventListener('click', function(e) {
+            if (e.target.tagName === 'LI' && e.target.textContent !== 'No instruments found') {
+                instrumentInput.value = e.target.textContent;
+                suggestionsList.classList.remove('show');
+                suggestionsList.innerHTML = '';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-container')) {
+                suggestionsList.classList.remove('show');
+                suggestionsList.innerHTML = '';
+            }
+        });
+
+        instrumentInput.addEventListener('keydown', function(e) {
+            const suggestions = suggestionsList.querySelectorAll('li');
+            let currentIndex = Array.from(suggestions).findIndex(li => li.classList.contains('selected'));
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (currentIndex < suggestions.length - 1) {
+                    if (currentIndex >= 0) suggestions[currentIndex].classList.remove('selected');
+                    suggestions[currentIndex + 1].classList.add('selected');
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (currentIndex > 0) {
+                    suggestions[currentIndex].classList.remove('selected');
+                    suggestions[currentIndex - 1].classList.add('selected');
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (currentIndex >= 0 && suggestions[currentIndex].textContent !== 'No instruments found') {
+                    instrumentInput.value = suggestions[currentIndex].textContent;
+                    suggestionsList.classList.remove('show');
+                    suggestionsList.innerHTML = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

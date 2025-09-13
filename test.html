@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Right-to-Left Scrolling Staff with Notes Offset from Bar Lines</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: sans-serif;
+      background-color: #fff;
+    }
+
+    .staff-wrapper {
+      overflow: hidden;
+      width: 100%;
+      height: 200px;
+      border-bottom: 2px solid #ccc;
+      position: relative;
+    }
+
+    svg.staff {
+      height: 200px;
+      user-select: none;
+    }
+
+    .note-name-section {
+      margin-top: 40px;
+    }
+
+    .note-name-section h2 {
+      margin-bottom: 10px;
+    }
+
+    .note-names {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 18px;
+    }
+
+    .note-names div {
+      background: #f0f0f0;
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Right-to-Left Scrolling Random Half Notes with Bar Lines and Stem Direction</h1>
+
+  <div class="staff-wrapper">
+    <svg id="music-staff" class="staff" width="6000" viewBox="0 0 6000 160" preserveAspectRatio="xMinYMin meet">
+      <!-- Staff lines -->
+      <g stroke="black" stroke-width="1" id="staff-lines"></g>
+
+      <!-- 4/4 Time Bar Lines -->
+      <g stroke="black" stroke-width="1" id="bar-lines"></g>
+
+      <!-- Notes Group -->
+      <g id="note-group" fill="black"></g>
+    </svg>
+  </div>
+
+  <!-- 🔤 Note Name Section -->
+  <div class="note-name-section">
+    <h2>Note Names (Alphabetical)</h2>
+    <div class="note-names">
+      <div>A</div>
+      <div>A♯ / B♭</div>
+      <div>B</div>
+      <div>C</div>
+      <div>C♯ / D♭</div>
+      <div>D</div>
+      <div>D♯ / E♭</div>
+      <div>E</div>
+      <div>F</div>
+      <div>F♯ / G♭</div>
+      <div>G</div>
+      <div>G♯ / A♭</div>
+    </div>
+  </div>
+
+  <script>
+    // CONFIGURATION -------------------------------------------
+
+    const scrollSpeedSeconds = 40;
+    const unitSpacing = 100; // spacing per beat
+    const noteOffsetFromBar = 25; // px; notes start 10px after the bar line if first in measure
+    const totalNotesCount = 40; // total half notes to generate
+
+    const svg = document.getElementById("music-staff");
+    const noteGroup = document.getElementById("note-group");
+    const staffLines = document.getElementById("staff-lines");
+    const barLines = document.getElementById("bar-lines");
+    const screenWidth = window.innerWidth;
+
+    // Staff line Y positions
+    const lineYs = [40, 60, 80, 100, 120];
+
+    // ----------------------------------------------------------
+
+    // Draw 5 staff lines
+    lineYs.forEach(y => {
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", "0");
+      line.setAttribute("x2", "6000");
+      line.setAttribute("y1", y);
+      line.setAttribute("y2", y);
+      staffLines.appendChild(line);
+    });
+
+    // Staff lines and spaces y positions (top to bottom)
+    const notePositions = [
+      20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140
+    ];
+
+    // Generate random half notes only
+    let notes = [];
+    for (let i = 0; i < totalNotesCount; i++) {
+      const randomY = notePositions[Math.floor(Math.random() * notePositions.length)];
+      notes.push({ name: "HalfNote", y: randomY, type: "half" });
+    }
+
+    const totalBeats = totalNotesCount * 2;
+    const totalNotesWidth = totalBeats * unitSpacing + 200;
+
+    // Draw bar lines every 4 beats
+    const totalMeasures = Math.ceil((totalBeats + 8) / 4);
+    for (let measure = 0; measure <= totalMeasures; measure++) {
+      const x = screenWidth + measure * 4 * unitSpacing;
+      const barLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      barLine.setAttribute("x1", x);
+      barLine.setAttribute("x2", x);
+      barLine.setAttribute("y1", lineYs[0] - 5);
+      barLine.setAttribute("y2", lineYs[lineYs.length - 1] + 5);
+      barLines.appendChild(barLine);
+    }
+
+    // Place notes spaced based on half note beats (2 beats each)
+    let currentBeatPos = 0;
+
+    notes.forEach(note => {
+      const beatsForNote = 2;
+
+      const measureStartX = screenWidth + Math.floor(currentBeatPos / 4) * 4 * unitSpacing;
+      const beatInsideMeasure = currentBeatPos % 4;
+
+      // Offset first note in measure by noteOffsetFromBar (10px)
+      const noteX = measureStartX + (beatInsideMeasure === 0 ? noteOffsetFromBar : 0) + beatInsideMeasure * unitSpacing;
+
+      // Create note head (ellipse)
+      const ellipse = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+      ellipse.setAttribute("cx", noteX);
+      ellipse.setAttribute("cy", note.y);
+      ellipse.setAttribute("rx", 8);
+      ellipse.setAttribute("ry", 6);
+      ellipse.setAttribute("fill", "white");
+      ellipse.setAttribute("stroke", "black");
+      ellipse.setAttribute("stroke-width", "1");
+      noteGroup.appendChild(ellipse);
+
+      // Ledger line if outside staff
+      if (note.y < lineYs[0] || note.y > lineYs[lineYs.length - 1]) {
+        const ledger = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        ledger.setAttribute("x1", noteX - 10);
+        ledger.setAttribute("x2", noteX + 10);
+        ledger.setAttribute("y1", note.y);
+        ledger.setAttribute("y2", note.y);
+        ledger.setAttribute("stroke", "black");
+        ledger.setAttribute("stroke-width", "1");
+        noteGroup.appendChild(ledger);
+      }
+
+      // Stem direction logic
+      const stem = document.createElementNS("http://www.w3.org/2000/svg", "line");
+
+      if (note.y <= lineYs[2]) {
+        stem.setAttribute("x1", noteX - 8);
+        stem.setAttribute("y1", note.y);
+        stem.setAttribute("x2", noteX - 8);
+        stem.setAttribute("y2", note.y + 35);
+      } else {
+        stem.setAttribute("x1", noteX + 8);
+        stem.setAttribute("y1", note.y);
+        stem.setAttribute("x2", noteX + 8);
+        stem.setAttribute("y2", note.y - 35);
+      }
+
+      stem.setAttribute("stroke", "black");
+      stem.setAttribute("stroke-width", "1.5");
+      noteGroup.appendChild(stem);
+
+      currentBeatPos += beatsForNote;
+    });
+
+    // Animate notes and bar lines group together
+    const scrollDistance = totalNotesWidth + screenWidth;
+
+    noteGroup.style.animation = `scrollLeft ${scrollSpeedSeconds}s linear infinite`;
+    barLines.style.animation = `scrollLeft ${scrollSpeedSeconds}s linear infinite`;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+      @keyframes scrollLeft {
+        from { transform: translateX(0); }
+        to { transform: translateX(-${scrollDistance}px); }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>
+</html>
