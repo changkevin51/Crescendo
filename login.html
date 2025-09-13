@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crescendo</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.3.0/firebase-auth-compat.js"></script>
+  <link rel="icon" href="Crescendo-removebg-preview.png" type="image/x-icon">
+
+
+  <link rel="stylesheet" href="template.css">
+  <style>
+    #status {
+      text-align: center;
+      margin-top: 1rem;
+      padding: 0.5rem;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+
+    #status.logged-in {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #c8e6c9;
+    }
+
+    #status.logged-out {
+      background-color: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+    }
+
+    #logoutBtn {
+      display: none;
+      margin: 1rem auto;
+      padding: 0.5rem 1rem;
+      background-color: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #f44336;
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 5px;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo">
+      <img src="Crescendo-removebg-preview.png" alt="Crescendo" class="logo-icon">
+      <h1>Crescendo</h1>
+      <p>Level up one song at a time!</p>
+    </div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="loginEmail">Email Address</label>
+        <input type="email" id="loginEmail" required />
+      </div>
+
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" required />
+        <div class="forgot-password">
+          <a href="#">Forgot password?</a>
+        </div>
+      </div>
+
+      <button type="submit" class="login-btn">Sign In</button>
+    </form>
+
+    <div class="signup-link">
+      Don't have an account? <a href="signup.html">Sign up</a>
+    </div>
+
+    <div id="status" class="logged-out">Not logged in</div>
+    <button id="logoutBtn">Sign Out</button>
+
+    <!-- Error Popup -->
+    <div id="popup" class="popup">Invalid login credentials</div>
+  </div>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCTDCZQXOBhxmEl-EK-Cw_M5XICB3lqEyY",
+      authDomain: "crescendo-1d8c6.firebaseapp.com",
+      projectId: "crescendo-1d8c6",
+      appId: "1:620671960576:web:674e0e653ea99a61b57ae5"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    const statusEl = document.getElementById('status');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const popup = document.getElementById('popup');
+
+    function showPopup(message) {
+      popup.textContent = message;
+      popup.style.display = 'block';
+      setTimeout(() => {
+        popup.style.display = 'none';
+      }, 3000);
+    }
+
+    // Email/Password login
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+
+      auth.signInWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          statusEl.innerText = `Logged in as ${userCredential.user.email}`;
+          statusEl.className = 'logged-in';
+          logoutBtn.style.display = 'block';
+          window.location.href = "home.html";
+        })
+        .catch(error => {
+          // Show popup for incorrect login
+          if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+            showPopup("Incorrect email or password.");
+          } else {
+            showPopup(error.message);
+          }
+        });
+    });
+
+    // Sign out
+    logoutBtn.addEventListener('click', () => {
+      auth.signOut().then(() => {
+        statusEl.innerText = 'Not logged in';
+        statusEl.className = 'logged-out';
+        logoutBtn.style.display = 'none';
+      });
+    });
+
+    // Auth state listener
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        statusEl.innerText = `Logged in as ${user.email}`;
+        statusEl.className = 'logged-in';
+        logoutBtn.style.display = 'block';
+      } else {
+        statusEl.innerText = 'Not logged in';
+        statusEl.className = 'logged-out';
+        logoutBtn.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

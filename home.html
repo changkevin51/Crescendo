@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crescendo - Home</title>
+    <link rel="icon" href="Crescendo-removebg-preview.png" type="image/x-icon">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f0f9f0 0%, #ffffff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Updated z-index to make music notes appear behind content */
+        .music-notes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .note {
+            position: absolute;
+            font-size: 2rem;
+            color: rgba(144, 238, 144, 0.3);
+            animation: float 8s infinite linear;
+            opacity: 0;
+        }
+
+        .note:nth-child(1) { left: 10%; animation-delay: 0s; font-size: 1.5rem; }
+        .note:nth-child(2) { left: 20%; animation-delay: 1s; font-size: 2.5rem; }
+        .note:nth-child(3) { left: 30%; animation-delay: 2s; font-size: 1.8rem; }
+        .note:nth-child(4) { left: 40%; animation-delay: 3s; font-size: 2rem; }
+        .note:nth-child(5) { left: 50%; animation-delay: 4s; font-size: 1.6rem; }
+        .note:nth-child(6) { left: 60%; animation-delay: 5s; font-size: 2.2rem; }
+        .note:nth-child(7) { left: 70%; animation-delay: 6s; font-size: 1.9rem; }
+        .note:nth-child(8) { left: 80%; animation-delay: 7s; font-size: 2.3rem; }
+        .note:nth-child(9) { left: 90%; animation-delay: 0.5s; font-size: 1.7rem; }
+        .note:nth-child(10) { left: 15%; animation-delay: 3.5s; font-size: 2.1rem; }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(144, 238, 144, 0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid #e8f5e8;
+            position: relative;
+            z-index: 10;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+
+        .logo h1 {
+            color: #2d5a2d;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            color: #6b8e6b;
+            font-size: 16px;
+        }
+
+        .game-options {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .option-button {
+            width: 100%;
+            background: linear-gradient(135deg, #90ee90 0%, #7dd87d 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .option-button:hover {
+            background: linear-gradient(135deg, #7dd87d 0%, #6bc96b 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
+        }
+
+        /* Added animation styles for multiplayer button splitting */
+        .multiplayer-button {
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .multiplayer-button.splitting {
+            transform: scale(0.95);
+            opacity: 0.7;
+        }
+
+        .multiplayer-options {
+            display: none;
+            flex-direction: row;
+            gap: 1rem;
+            margin-top: 1rem;
+            opacity: 0;
+            transform: translateY(-30px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .multiplayer-options.show {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .sub-button {
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform: translateY(20px);
+            opacity: 0;
+            flex: 1;
+            color: white;
+        }
+
+        /* Different colors for create and join buttons */
+        .sub-button.create-room {
+            background: linear-gradient(135deg, #90ee90 0%, #7dd87d 100%);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.229);
+        }
+
+        .sub-button.create-room:hover {
+            background: linear-gradient(135deg, #7dd87d 0%, #6bc96b 100%);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .sub-button.join-room {
+            background: linear-gradient(135deg, #90ee90 0%, #7dd87d 100%);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.229);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sub-button.join-room:hover {
+            background: linear-gradient(135deg, #7dd87d 0%, #6bc96b 100%);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Added animation for join room button growing */
+        .sub-button.join-room.expanded {
+            transform: scale(1.1) translateY(0);
+            background: linear-gradient(135deg, #90EE90, #98FB98);
+            box-shadow: 0 10px 25px rgba(144, 238, 144, 0.4);
+        }
+
+        .multiplayer-options.show .sub-button {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Updated animation delays for horizontal layout */
+        .multiplayer-options.show .sub-button:nth-child(1) {
+            transition-delay: 0.1s;
+            transform: translateX(-20px);
+        }
+
+        .multiplayer-options.show .sub-button:nth-child(2) {
+            transition-delay: 0.2s;
+            transform: translateX(20px);
+        }
+
+        .multiplayer-options.show .sub-button:nth-child(1),
+        .multiplayer-options.show .sub-button:nth-child(2) {
+            transform: translateX(0) translateY(0);
+        }
+
+        /* Repositioned back button to be separate from horizontal buttons */
+        .back-button-container {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .back-button-container.show {
+            display: block;
+        }
+
+        .back-button {
+            background: linear-gradient(135deg, #d3d3d3, #c0c0c0);
+            color: #666;
+            margin-top: 1rem;
+            /* Made back button full width and separate from horizontal buttons */
+            flex: none;
+            width: 100%;
+        }
+
+        /* Added styles for room code input */
+        .room-code-container {
+            display: none;
+            margin-top: 24px;
+            padding: 24px;
+            background: #fafffe;
+            border-radius: 8px;
+            border: 2px solid #e8f5e8;
+        }
+
+        .room-code-container.show {
+            display: block;
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        .room-code-label {
+            color: #2d5a2d;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .code-inputs {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .code-input {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #e8f5e8;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #2d5a2d;
+            background: white;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .code-input:focus {
+            outline: none;
+            border-color: #90ee90;
+            box-shadow: 0 0 0 3px rgba(144, 238, 144, 0.1);
+        }
+
+        .join-submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #90ee90 0%, #7dd87d 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .join-submit-btn:hover {
+            background: linear-gradient(135deg, #7dd87d 0%, #6bc96b 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px;
+            }
+
+            .logo h1 {
+                font-size: 24px;
+            }
+
+            .code-input {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+
+            /* Stack buttons vertically on mobile */
+            .multiplayer-options {
+                flex-direction: column;
+            }
+
+            .sub-button {
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Added floating music notes background -->
+    <div class="music-notes">
+        <div class="note">♪</div>
+        <div class="note">♫</div>
+        <div class="note">♪</div>
+        <div class="note">♬</div>
+        <div class="note">♫</div>
+        <div class="note">♪</div>
+        <div class="note">♬</div>
+        <div class="note">♫</div>
+        <div class="note">♪</div>
+        <div class="note">♬</div>
+    </div>
+
+    <div class="container">
+        <div class="logo">
+            <img src="Crescendo-removebg-preview.png" alt="Crescendo" class="logo-icon">
+            <h1>Crescendo</h1>
+            <p>Choose your game mode</p>
+        </div>
+
+        <div class="game-options">
+            <button class="option-button" onclick="startSinglePlayer()">
+                Single Player
+            </button>
+            
+            <!-- Added multiplayer-button class and updated ID -->
+            <button class="option-button multiplayer-button" id="multiplayerBtn" onclick="toggleMultiplayer()">
+                Multiplayer
+            </button>
+            
+            <div class="multiplayer-options" id="multiplayerOptions">
+                <button class="sub-button create-room" onclick="createRoom()">
+                    Create a Room
+                </button>
+                <!-- Added join-room class and updated onclick -->
+                <button class="sub-button join-room" id="joinRoomBtn" onclick="showJoinRoom()">
+                    Join a Room
+                </button>
+            </div>
+
+            <div class="back-button-container" id="backButtonContainer">
+                <button class="option-button back-button" onclick="toggleMultiplayer()">
+                    Back
+                </button>
+            </div>
+
+            <!-- Added room code input container -->
+            <div class="room-code-container" id="roomCodeContainer">
+                <div class="room-code-label">Enter Room Code:</div>
+                <div class="code-inputs">
+                    <input type="text" class="code-input" maxlength="1" oninput="moveToNext(this, 0)">
+                    <input type="text" class="code-input" maxlength="1" oninput="moveToNext(this, 1)">
+                    <input type="text" class="code-input" maxlength="1" oninput="moveToNext(this, 2)">
+                    <input type="text" class="code-input" maxlength="1" oninput="moveToNext(this, 3)">
+                </div>
+                <button class="join-submit-btn" onclick="submitRoomCode()">Join Room</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function startSinglePlayer() {
+            alert('Starting Single Player mode!');
+            // Add your single player logic here
+        }
+
+        function toggleMultiplayer() {
+            const options = document.getElementById('multiplayerOptions');
+            const btn = document.getElementById('multiplayerBtn');
+            const roomCodeContainer = document.getElementById('roomCodeContainer');
+            const joinRoomBtn = document.getElementById('joinRoomBtn');
+            const backButtonContainer = document.getElementById('backButtonContainer');
+            
+            if (options.classList.contains('show')) {
+                // Hide multiplayer options
+                options.classList.remove('show');
+                roomCodeContainer.classList.remove('show');
+                btn.classList.remove('splitting');
+                joinRoomBtn.classList.remove('expanded');
+                backButtonContainer.classList.remove('show');
+                
+                setTimeout(() => {
+                    btn.style.display = 'block';
+                }, 300);
+            } else {
+                // Show multiplayer options with animation
+                btn.classList.add('splitting');
+                
+                setTimeout(() => {
+                    btn.style.display = 'none';
+                    options.classList.add('show');
+                    backButtonContainer.classList.add('show');
+                }, 200);
+            }
+        }
+
+        function createRoom() {
+            alert('Creating a new room!');
+            // Add your create room logic here
+        }
+
+        function showJoinRoom() {
+            const roomCodeContainer = document.getElementById('roomCodeContainer');
+            const joinRoomBtn = document.getElementById('joinRoomBtn');
+            
+            joinRoomBtn.classList.add('expanded');
+            
+            roomCodeContainer.classList.add('show');
+            
+            // Focus on first input
+            setTimeout(() => {
+                document.querySelector('.code-input').focus();
+            }, 100);
+        }
+
+        function moveToNext(current, index) {
+            const inputs = document.querySelectorAll('.code-input');
+            
+            // Convert to uppercase
+            current.value = current.value.toUpperCase();
+            
+            // Move to next input if current is filled
+            if (current.value.length === 1 && index < 3) {
+                inputs[index + 1].focus();
+            }
+            
+            // Handle backspace - move to previous input
+            current.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && current.value === '' && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+        }
+
+        function submitRoomCode() {
+            const inputs = document.querySelectorAll('.code-input');
+            let roomCode = '';
+            
+            inputs.forEach(input => {
+                roomCode += input.value;
+            });
+            
+            if (roomCode.length === 4) {
+                alert(`Joining room: ${roomCode}`);
+                // Add your join room logic here
+            } else {
+                alert('Please enter a complete 4-character room code');
+            }
+        }
+    </script>
+</body>
+</html>
