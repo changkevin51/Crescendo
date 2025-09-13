@@ -1,9 +1,8 @@
-let scrollSpeedSeconds = 80;
+let totalScrollTime = 80;
 let tempoMultiplier = 1.0;
-const unitSpacingQuarter = 60;
-const unitSpacingHalf = 120;
-const unitSpacingWhole = 240;
-const minSpacingAfterLastNote = 30;
+const quarterNoteSpacing = 60;
+const halfNoteSpacing = 120;
+const wholeNoteSpacing = 240;
 const screenWidth = window.innerWidth;
 const noteOffsetFromBar = 30;
 const judgmentLineX = 80;
@@ -20,6 +19,7 @@ const currentDetectedFrequency = document.getElementById('current-detected-frequ
 const pauseBtn = document.getElementById('pause-btn');
 const tempoSlider = document.getElementById('tempo-slider');
 const tempoValue = document.getElementById('tempo-value');
+const metronomeCheckbox = document.getElementById('metronome-checkbox');
 
 // Game state
 let gameNotes = [];
@@ -35,6 +35,11 @@ let totalPausedTime = 0;
 let animationId = null;
 let detectionInterval = null;
 let level = 1;
+
+// Metronome state
+let metronomeInterval = null;
+let metronomeAudioContext = null;
+let isMetronomeEnabled = false;
 
 // Note detection state
 let lastDetectedNote = null;
@@ -103,9 +108,9 @@ measures.forEach(measure => {
   currentX += noteOffsetFromBar;
 
   measure.forEach(note => {
-    let spacing = note.beats === 1 ? unitSpacingQuarter
-               : note.beats === 2 ? unitSpacingHalf
-               : unitSpacingWhole;
+    let spacing = note.beats === 1 ? quarterNoteSpacing
+               : note.beats === 2 ? halfNoteSpacing
+               : wholeNoteSpacing;
 
     // Create note object for game tracking
     const gameNote = {
@@ -191,7 +196,7 @@ measures.forEach(measure => {
   });
 
   // Bar line position - at least 30px after last note
-  const barX = currentX + minSpacingAfterLastNote;
+  const barX = currentX;
   const barLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
   barLine.setAttribute("x1", barX);
   barLine.setAttribute("x2", barX);
@@ -248,7 +253,7 @@ function startGame() {
   
   // Animate scroll
   const scrollDistance = currentX + 200;
-  const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+  const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   noteGroup.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
   barLines.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
   
@@ -280,7 +285,7 @@ function gameLoop() {
 function checkNoteJudgments() {
   const currentTime = Date.now();
   const elapsedTime = (currentTime - gameStartTime - totalPausedTime) / 1000;
-  const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+  const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   const scrollProgress = elapsedTime / adjustedScrollSpeed;
   const totalScrollDistance = currentX + 200;
   const currentScrollX = scrollProgress * totalScrollDistance;
@@ -565,7 +570,7 @@ function togglePause() {
     totalPausedTime += Date.now() - pausedTime;
     
     // Resume animations
-    const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
     noteGroup.style.animationPlayState = 'running';
     barLines.style.animationPlayState = 'running';
   } else {
@@ -588,7 +593,7 @@ function updateTempo() {
   if (isGameRunning && !isPaused) {
     // Update animation speed
     const scrollDistance = currentX + 200;
-    const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
     
     // Remove existing animations
     noteGroup.style.animation = 'none';
@@ -638,6 +643,83 @@ if (tempoSlider) {
   tempoSlider.addEventListener('input', updateTempo);
   // Initialize tempo display
   updateTempo();
+}
+
+// Metronome functions
+function initializeMetronomeAudio() {
+  if (!metronomeAudioContext) {
+    metronomeAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playMetronomeClick() {
+  if (!metronomeAudioContext) return;
+  
+  // Create oscillator for click sound
+  const oscillator = metronomeAudioContext.createOscillator();
+  const gainNode = metronomeAudioContext.createGain();
+  
+  // Connect nodes
+  oscillator.connect(gainNode);
+  gainNode.connect(metronomeAudioContext.destination);
+  
+  // Configure click sound (short, sharp tone)
+  oscillator.frequency.setValueAtTime(800, metronomeAudioContext.currentTime); // 800Hz click
+  oscillator.type = 'square';
+  
+  // Quick attack and decay for sharp click
+  gainNode.gain.setValueAtTime(0, metronomeAudioContext.currentTime);
+  gainNode.gain.linearRampToValueAtTime(0.3, metronomeAudioContext.currentTime + 0.01);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, metronomeAudioContext.currentTime + 0.1);
+  
+  // Play the click
+  oscillator.start(metronomeAudioContext.currentTime);
+  oscillator.stop(metronomeAudioContext.currentTime + 0.1);
+}
+
+function startMetronome() {
+  if (metronomeInterval) {
+    clearInterval(metronomeInterval);
+  }
+  
+  // Calculate BPM based on game tempo (assuming 4/4 time, quarter note gets the beat)
+  const totalScrollDistance = currentX + 200;
+  const timePerQuarterNote = (totalScrollTime / totalScrollDistance) * (quarterNoteSpacing + noteOffsetFromBar/4);
+  const baseBPM = 60 / timePerQuarterNote;
+  const actualBPM = baseBPM * tempoMultiplier;
+  const intervalMs = (60 / actualBPM) * 1000; // Convert BPM to milliseconds
+  
+  // Play initial click
+  playMetronomeClick();
+  
+  // Set up interval for subsequent clicks
+  metronomeInterval = setInterval(() => {
+    if (!isPaused && isGameRunning) {
+      playMetronomeClick();
+    }
+  }, intervalMs);
+}
+
+function stopMetronome() {
+  if (metronomeInterval) {
+    clearInterval(metronomeInterval);
+    metronomeInterval = null;
+  }
+}
+
+if (metronomeCheckbox) {
+  metronomeCheckbox.addEventListener('change', function() {
+    if (this.checked) {
+      isMetronomeEnabled = true;
+      initializeMetronomeAudio();
+      if (isGameRunning) {
+        startMetronome();
+      }
+    } else {
+      isMetronomeEnabled = false;
+      stopMetronome();
+    }
+  });
 }
 
 // Start the game when page loads
