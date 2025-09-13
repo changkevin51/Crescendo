@@ -34,7 +34,7 @@ class NoteStatistics {
         console.log(`📊 Total note events recorded: ${this.noteEvents.length}`);
     }
 
-    startNoteTracking(targetNote, targetOctave, targetFrequency, difficulty, timePerNote) {
+    startNoteTracking(targetNote, targetOctave, targetFrequency, difficulty, timePerNote, expectedTimestamp = null) {
         if (!this.isTracking) return;
 
         this.currentNoteStartTime = Date.now();
@@ -51,6 +51,7 @@ class NoteStatistics {
             timeAllowed: timePerNote,
             startTime: new Date().toISOString(),
             startTimestamp: this.currentNoteStartTime,
+            expectedTimestamp: expectedTimestamp || this.currentNoteStartTime, // When note should ideally be played
             endTime: null,
             endTimestamp: null,
             duration: null,
@@ -63,6 +64,8 @@ class NoteStatistics {
             frequencyAccuracy: null,
             responseTime: null,
             holdDuration: null,
+            timingAccuracy: null, // How early/late relative to expected timing
+            rhythmAccuracy: null, // Overall rhythm consistency
             averageVolume: null,
             maxVolume: null,
             volumeStability: null,
@@ -169,6 +172,9 @@ class NoteStatistics {
     }
 
     async saveSessionData(gameStats) {
+        // Calculate rhythm analysis for the entire session
+        const rhythmAnalysis = this.calculateSessionRhythmAnalysis();
+        
         const sessionData = {
             gameSession: {
                 sessionId: this.sessionId,
@@ -179,10 +185,13 @@ class NoteStatistics {
                 totalScore: gameStats.score || 0,
                 totalNotes: gameStats.totalNotes || 0,
                 correctNotes: gameStats.correctNotes || 0,
+                wrongNotes: gameStats.wrongNotes || 0,
+                missedNotes: gameStats.missedNotes || 0,
                 accuracy: gameStats.totalNotes > 0 ? (gameStats.correctNotes / gameStats.totalNotes * 100) : 0,
                 maxStreak: gameStats.maxStreak || 0,
                 sessionDuration: this.sessionEndTime && this.sessionStartTime ? 
-                    new Date(this.sessionEndTime) - new Date(this.sessionStartTime) : 0
+                    new Date(this.sessionEndTime) - new Date(this.sessionStartTime) : 0,
+                rhythmAnalysis: rhythmAnalysis
             },
             noteEvents: this.noteEvents.map(event => ({
                 ...event,
@@ -204,40 +213,42 @@ class NoteStatistics {
 
     async saveToLocalFile(sessionData) {
         try {
-            // Create DynamoDB-compatible format
-            const dynamoDbData = this.convertToDynamoDbFormat(sessionData);
-            
-            // Save both formats
-            await this.saveJsonFile(sessionData, 'detailed');
-            await this.saveJsonFile(dynamoDbData, 'dynamodb');
-            
-            // Also save to browser's localStorage for persistence
+            // Save only to browser's localStorage/Chrome storage - no file downloads
             this.saveToLocalStorage(sessionData);
+            
+            // Also save to Chrome storage API if available for better persistence
+            await this.saveToChromeStorage(sessionData);
             
         } catch (error) {
             console.error('📊 Error saving session data:', error);
         }
     }
     
-    async saveJsonFile(data, type) {
-        const dataStr = JSON.stringify(data, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        
-        const timestamp = new Date().toISOString().split('T')[0];
-        const fileName = `crescendo-session-${type}-${this.sessionId}-${timestamp}.json`;
-        
-        // Create download link
-        const downloadLink = document.createElement('a');
-        downloadLink.href = URL.createObjectURL(dataBlob);
-        downloadLink.download = fileName;
-        downloadLink.style.display = 'none';
-        document.body.appendChild(downloadLink);
-        
-        // Auto-download the file
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        
-        console.log(`📊 ${type} session data saved: ${fileName}`);
+    async saveToChromeStorage(sessionData) {
+        try {
+            // Use Chrome storage API if available
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                const storageKey = `crescendo_session_${this.sessionId}`;
+                await chrome.storage.local.set({ [storageKey]: sessionData });
+                
+                // Keep only last 10 sessions in Chrome storage
+                const allKeys = await chrome.storage.local.get(null);
+                const sessionKeys = Object.keys(allKeys)
+                    .filter(key => key.startsWith('crescendo_session_'))
+                    .sort();
+                
+                if (sessionKeys.length > 10) {
+                    const keysToRemove = sessionKeys.slice(0, sessionKeys.length - 10);
+                    await chrome.storage.local.remove(keysToRemove);
+                }
+                
+                console.log(`📊 Session data saved to Chrome storage: ${this.sessionId}`);
+            } else {
+                console.log('📊 Chrome storage not available, using localStorage only');
+            }
+        } catch (error) {
+            console.warn('📊 Could not save to Chrome storage:', error);
+        }
     }
     
     saveToLocalStorage(sessionData) {
@@ -255,6 +266,8 @@ class NoteStatistics {
                     localStorage.removeItem(allSessions[i]);
                 }
             }
+            
+            console.log(`📊 Session data saved to localStorage: ${this.sessionId}`);
         } catch (error) {
             console.warn('📊 Could not save to localStorage:', error);
         }
@@ -430,7 +443,9 @@ class NoteStatistics {
                 responseTime: null,
                 holdDuration: 0,
                 sustainQuality: 'none',
-                timingConsistency: 0
+                timingConsistency: 0,
+                timingAccuracy: null,
+                rhythmCategory: 'none'
             };
             return;
         }
@@ -438,6 +453,20 @@ class NoteStatistics {
         const firstCorrect = correctSamples[0].relativeTime;
         const lastCorrect = correctSamples[correctSamples.length - 1].relativeTime;
         const holdDuration = lastCorrect - firstCorrect;
+        
+        // Calculate timing accuracy relative to expected timing
+        const expectedDelay = this.currentNoteData.expectedTimestamp - this.currentNoteData.startTimestamp;
+        const actualFirstDetection = this.currentNoteData.startTimestamp + firstCorrect;
+        const timingDifference = actualFirstDetection - this.currentNoteData.expectedTimestamp;
+        
+        // Positive = late, negative = early
+        this.currentNoteData.timingAccuracy = timingDifference;
+        
+        // Categorize rhythm performance
+        let rhythmCategory = 'on_time';
+        if (Math.abs(timingDifference) > 500) rhythmCategory = 'very_off';
+        else if (Math.abs(timingDifference) > 200) rhythmCategory = 'off';
+        else if (Math.abs(timingDifference) > 100) rhythmCategory = 'slightly_off';
         
         // Assess sustain quality
         let sustainQuality = 'poor';
@@ -451,7 +480,11 @@ class NoteStatistics {
             responseTime: firstCorrect,
             holdDuration: holdDuration,
             sustainQuality: sustainQuality,
-            timingConsistency: this.calculateTimingConsistency(correctSamples)
+            timingConsistency: this.calculateTimingConsistency(correctSamples),
+            timingAccuracy: timingDifference,
+            rhythmCategory: rhythmCategory,
+            isEarly: timingDifference < 0,
+            isLate: timingDifference > 0
         };
     }
     
@@ -638,5 +671,80 @@ class NoteStatistics {
         });
         
         return Object.keys(noteCounts).reduce((a, b) => noteCounts[a] > noteCounts[b] ? a : b, null);
+    }
+    
+    calculateSessionRhythmAnalysis() {
+        const correctEvents = this.noteEvents.filter(event => event.outcome === 'correct');
+        
+        if (correctEvents.length === 0) {
+            return {
+                overallRhythmAccuracy: 0,
+                tendencyToBeEarly: false,
+                tendencyToBeLate: false,
+                averageTimingOffset: 0,
+                rhythmConsistency: 0,
+                timingPattern: 'inconsistent'
+            };
+        }
+        
+        const timingOffsets = correctEvents
+            .filter(event => event.timingAnalysis && event.timingAnalysis.timingAccuracy !== null)
+            .map(event => event.timingAnalysis.timingAccuracy);
+            
+        if (timingOffsets.length === 0) {
+            return {
+                overallRhythmAccuracy: 0,
+                tendencyToBeEarly: false,
+                tendencyToBeLate: false,
+                averageTimingOffset: 0,
+                rhythmConsistency: 0,
+                timingPattern: 'no_data'
+            };
+        }
+        
+        const averageOffset = timingOffsets.reduce((sum, offset) => sum + offset, 0) / timingOffsets.length;
+        const earlyCount = timingOffsets.filter(offset => offset < -50).length;
+        const lateCount = timingOffsets.filter(offset => offset > 50).length;
+        const onTimeCount = timingOffsets.length - earlyCount - lateCount;
+        
+        // Calculate consistency (lower standard deviation = more consistent)
+        const variance = timingOffsets.reduce((acc, offset) => acc + Math.pow(offset - averageOffset, 2), 0) / timingOffsets.length;
+        const standardDeviation = Math.sqrt(variance);
+        const rhythmConsistency = Math.max(0, 100 - (standardDeviation / 10)); // Scale to 0-100
+        
+        let timingPattern = 'consistent';
+        if (earlyCount > lateCount * 2) timingPattern = 'tends_early';
+        else if (lateCount > earlyCount * 2) timingPattern = 'tends_late';
+        else if (standardDeviation > 200) timingPattern = 'inconsistent';
+        
+        return {
+            overallRhythmAccuracy: (onTimeCount / timingOffsets.length) * 100,
+            tendencyToBeEarly: earlyCount > timingOffsets.length * 0.6,
+            tendencyToBeLate: lateCount > timingOffsets.length * 0.6,
+            averageTimingOffset: averageOffset,
+            rhythmConsistency: rhythmConsistency,
+            timingPattern: timingPattern,
+            earlyNotePercentage: (earlyCount / timingOffsets.length) * 100,
+            lateNotePercentage: (lateCount / timingOffsets.length) * 100,
+            onTimePercentage: (onTimeCount / timingOffsets.length) * 100
+        };
+    }
+    
+    // Method to get session data for Cohere analysis
+    getSessionDataForAnalysis() {
+        return {
+            sessionId: this.sessionId,
+            sessionData: {
+                gameSession: {
+                    sessionId: this.sessionId,
+                    startTime: this.sessionStartTime,
+                    endTime: this.sessionEndTime,
+                    sessionDuration: this.sessionEndTime && this.sessionStartTime ? 
+                        new Date(this.sessionEndTime) - new Date(this.sessionStartTime) : 0
+                },
+                noteEvents: this.noteEvents,
+                rhythmAnalysis: this.calculateSessionRhythmAnalysis()
+            }
+        };
     }
 }

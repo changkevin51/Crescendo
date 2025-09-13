@@ -18,6 +18,7 @@ const barLines = document.getElementById("bar-lines");
 const currentDetectedNote = document.getElementById('current-detected-note');
 const currentDetectedFrequency = document.getElementById('current-detected-frequency');
 const pauseBtn = document.getElementById('pause-btn');
+const endGameBtn = document.getElementById('end-game-btn');
 const tempoSlider = document.getElementById('tempo-slider');
 const tempoValue = document.getElementById('tempo-value');
 
@@ -34,6 +35,10 @@ let pausedTime = 0;
 let totalPausedTime = 0;
 let animationId = null;
 let detectionInterval = null;
+let noteStatistics = null;
+let currentNoteIndex = 0;
+let maxStreak = 0;
+let currentStreak = 0;
 
 // Note detection state
 let lastDetectedNote = null;
@@ -176,7 +181,9 @@ measures.forEach(measure => {
     // Add floating note letter above the note
     const noteLetter = document.createElementNS("http://www.w3.org/2000/svg", "text");
     const fullNoteName = yToNote[note.y] || 'X';
-    noteLetter.textContent = fullNoteName;
+    // Remove octave number from note name
+    const noteNameOnly = fullNoteName.replace(/\d+$/, '');
+    noteLetter.textContent = noteNameOnly;
     noteLetter.setAttribute("x", currentX);
     noteLetter.setAttribute("y", note.y - 20);
     noteLetter.setAttribute("class", "note-letter");
@@ -208,6 +215,9 @@ async function initializeGame() {
     await pitchDetector.initialize();
     pitchDetector.start();
     
+    // Initialize statistics tracking
+    noteStatistics = new NoteStatistics();
+    
     // Start the game
     startGame();
   } catch (error) {
@@ -221,6 +231,14 @@ function startGame() {
   isGameRunning = true;
   isPaused = false;
   totalPausedTime = 0;
+  currentNoteIndex = 0;
+  currentStreak = 0;
+  maxStreak = 0;
+  
+  // Start statistics session
+  if (noteStatistics) {
+    noteStatistics.startSession('medium', 5000); // Default difficulty and time per note
+  }
   
   // Start continuous pitch detection
   startPitchDetection();
@@ -337,6 +355,35 @@ function judgeNote(note, closestUpcomingNote = null) {
   const currentTime = Date.now();
   const pitchData = pitchDetector.detectPitch();
   const expectedNoteName = note.noteName.replace(/[0-9]/g, '');
+  const expectedOctave = parseInt(note.noteName.match(/[0-9]/)[0]);
+  const expectedFrequency = getFrequencyFromNote(note.noteName);
+  
+  // Start note tracking if not already started
+  if (!note.statisticsStarted && noteStatistics) {
+    const expectedTimestamp = calculateExpectedNoteTime(note);
+    noteStatistics.startNoteTracking(
+      expectedNoteName, 
+      expectedOctave, 
+      expectedFrequency, 
+      'medium', 
+      5000,
+      expectedTimestamp
+    );
+    note.statisticsStarted = true;
+  }
+  
+  // Record detection samples for statistics
+  if (pitchData && pitchData.confidence >= MIN_CONFIDENCE_FOR_SAMPLE && pitchData.volume > 5 && noteStatistics) {
+    const detectedNote = pitchDetector.frequencyToNote(pitchData.frequency);
+    noteStatistics.recordDetectionSample(
+      pitchData.frequency,
+      detectedNote.note,
+      detectedNote.octave,
+      pitchData.confidence,
+      pitchData.volume,
+      currentTime
+    );
+  }
   
   // Collect samples with lower threshold to catch more detections
   if (pitchData && pitchData.confidence >= MIN_CONFIDENCE_FOR_SAMPLE && pitchData.volume > 5) {
@@ -442,6 +489,32 @@ function judgeNote(note, closestUpcomingNote = null) {
 function markNoteCorrect(note) {
   note.judged = true;
   correctCount++;
+  currentStreak++;
+  maxStreak = Math.max(maxStreak, currentStreak);
+  
+  // End note tracking with correct outcome
+  if (noteStatistics && note.statisticsStarted) {
+    const pitchData = pitchDetector.detectPitch();
+    const detectedNote = pitchData ? pitchDetector.frequencyToNote(pitchData.frequency) : null;
+    
+    const detectedData = detectedNote ? {
+      note: detectedNote.note,
+      octave: detectedNote.octave,
+      frequency: pitchData.frequency,
+      centsDifference: detectedNote.cents,
+      frequencyAccuracy: Math.max(0, 100 - Math.abs(detectedNote.cents) / 2),
+      responseTime: note.highConfidenceSamples.length > 0 ? 
+        note.highConfidenceSamples[0].time - (note.statisticsStartTime || Date.now()) : null,
+      confidence: pitchData.confidence,
+      points: 100
+    } : null;
+    
+    console.log('✅ Correct note:', note.noteName, 'Detected:', detectedData);
+    
+    noteStatistics.endNoteTracking('correct', detectedData, {
+      streak: currentStreak
+    });
+  }
   
   // Change note color to green
   if (note.element) {
@@ -461,6 +534,31 @@ function markNoteCorrect(note) {
 function markNoteWrong(note, detectedNoteName = null) {
   note.judged = true;
   wrongCount++;
+  currentStreak = 0; // Reset streak on wrong note
+  
+  // End note tracking with incorrect outcome
+  if (noteStatistics && note.statisticsStarted) {
+    const pitchData = pitchDetector.detectPitch();
+    const detectedNote = pitchData ? pitchDetector.frequencyToNote(pitchData.frequency) : null;
+    
+    const detectedData = detectedNote ? {
+      note: detectedNote.note,
+      octave: detectedNote.octave,
+      frequency: pitchData.frequency,
+      centsDifference: detectedNote.cents,
+      frequencyAccuracy: Math.max(0, 100 - Math.abs(detectedNote.cents) / 2),
+      responseTime: note.highConfidenceSamples.length > 0 ? 
+        note.highConfidenceSamples[0].time - (note.statisticsStartTime || Date.now()) : null,
+      confidence: pitchData.confidence,
+      points: 0
+    } : null;
+    
+    console.log('❌ Wrong note:', note.noteName, 'Expected vs Detected:', detectedData);
+    
+    noteStatistics.endNoteTracking('incorrect', detectedData, {
+      streak: currentStreak
+    });
+  }
   
   // Change note color to red
   if (note.element) {
@@ -496,6 +594,35 @@ function markNoteMissed(note) {
   
   note.judged = true;
   missedCount++;
+  currentStreak = 0; // Reset streak on missed note
+  
+  // End note tracking with missed outcome
+  if (noteStatistics && note.statisticsStarted) {
+    console.log('⏭️ Missed note:', note.noteName);
+    
+    noteStatistics.endNoteTracking('missed', null, {
+      streak: currentStreak
+    });
+  } else if (noteStatistics) {
+    // If statistics wasn't started for this note, start and immediately end it as missed
+    const expectedNoteName = note.noteName.replace(/[0-9]/g, '');
+    const expectedOctave = parseInt(note.noteName.match(/[0-9]/)[0]);
+    const expectedFrequency = getFrequencyFromNote(note.noteName);
+    const expectedTimestamp = calculateExpectedNoteTime(note);
+    
+    noteStatistics.startNoteTracking(
+      expectedNoteName, 
+      expectedOctave, 
+      expectedFrequency, 
+      'medium', 
+      5000,
+      expectedTimestamp
+    );
+    
+    noteStatistics.endNoteTracking('missed', null, {
+      streak: currentStreak
+    });
+  }
   
   // Keep original color but mark as missed
   updateScoreDisplay();
@@ -505,6 +632,11 @@ function updateScoreDisplay() {
   document.getElementById('correct-count').textContent = correctCount;
   document.getElementById('missed-count').textContent = missedCount;
   document.getElementById('wrong-count').textContent = wrongCount;
+  
+  // Calculate and update live accuracy
+  const totalNotes = correctCount + missedCount + wrongCount;
+  const accuracy = totalNotes > 0 ? ((correctCount / totalNotes) * 100).toFixed(1) : 0.0;
+  document.getElementById('live-accuracy').textContent = `${accuracy}%`;
 }
 
 // New functions for added features
@@ -611,11 +743,134 @@ if (pauseBtn) {
   pauseBtn.addEventListener('click', togglePause);
 }
 
+if (endGameBtn) {
+  endGameBtn.addEventListener('click', endGameAndAnalyze);
+}
+
 if (tempoSlider) {
   tempoSlider.addEventListener('input', updateTempo);
   // Initialize tempo display
   updateTempo();
 }
 
+// Helper functions for statistics integration
+function getFrequencyFromNote(noteName) {
+  // Simple frequency calculation for common notes
+  const noteFrequencies = {
+    'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+    'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77
+  };
+  return noteFrequencies[noteName] || 440.00;
+}
+
+function calculateExpectedNoteTime(note) {
+  // Calculate when this note should ideally be played based on scroll position
+  const scrollDistance = currentX + 200;
+  const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+  const timeToReachJudgmentLine = ((note.x - judgmentLineX) / scrollDistance) * adjustedScrollSpeed * 1000;
+  return gameStartTime + timeToReachJudgmentLine;
+}
+
+async function endGameAndAnalyze() {
+  if (!isGameRunning) return;
+  
+  // Stop the game
+  stopGame();
+  
+  // End statistics session
+  if (noteStatistics) {
+    const gameStats = {
+      difficulty: 'medium',
+      timePerNote: 5000,
+      score: correctCount * 100,
+      totalNotes: correctCount + wrongCount + missedCount, // Use actual count of judged notes
+      correctNotes: correctCount,
+      wrongNotes: wrongCount,
+      missedNotes: missedCount,
+      maxStreak: maxStreak
+    };
+    
+    console.log('🎮 Game Stats:', gameStats);
+    
+    noteStatistics.endSession(gameStats);
+    
+    // Show loading message
+    const loadingDiv = document.createElement('div');
+    loadingDiv.innerHTML = `
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
+        <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
+          <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
+          <h2 style="margin-bottom: 15px;">🤖 Analyzing Your Performance...</h2>
+          <p>Our AI council is reviewing your session data and preparing detailed feedback.</p>
+        </div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(loadingDiv);
+    
+    try {
+      // Get session data for analysis
+      const sessionData = noteStatistics.getSessionDataForAnalysis();
+      
+      // Send to Cohere for analysis
+      const analysisResult = await window.cohereAnalytics.analyzeSession(sessionData);
+      
+      // Remove loading message
+      document.body.removeChild(loadingDiv);
+      
+      if (analysisResult.success) {
+        // Redirect to analytics page
+        window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+      } else {
+        // Show error and redirect anyway with fallback analysis
+        alert('AI analysis temporarily unavailable. Showing basic analysis.');
+        window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+      }
+      
+    } catch (error) {
+      // Remove loading message
+      if (document.body.contains(loadingDiv)) {
+        document.body.removeChild(loadingDiv);
+      }
+      
+      console.error('Analysis failed:', error);
+      alert('Analysis failed, but your session data has been saved. You can view basic statistics.');
+      
+      // Still redirect to analytics page for basic analysis
+      const sessionData = noteStatistics.getSessionDataForAnalysis();
+      window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+    }
+  } else {
+    alert('No statistics data available. Please start a new game.');
+  }
+}
+
+// Note label toggle functionality
+function toggleNoteLabels() {
+  const checkbox = document.getElementById('note-labels-checkbox');
+  const noteLabels = document.querySelectorAll('.note-letter');
+  
+  noteLabels.forEach(label => {
+    if (checkbox.checked) {
+      label.classList.remove('hidden');
+    } else {
+      label.classList.add('hidden');
+    }
+  });
+}
+
 // Start the game when page loads
 window.addEventListener('load', initializeGame);
+
+// Add event listener for note label toggle
+document.addEventListener('DOMContentLoaded', function() {
+  const noteLabelCheckbox = document.getElementById('note-labels-checkbox');
+  if (noteLabelCheckbox) {
+    noteLabelCheckbox.addEventListener('change', toggleNoteLabels);
+  }
+});

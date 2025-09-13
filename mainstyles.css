@@ -73,7 +73,7 @@ h1 {
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(10px);
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   gap: 32px;
   flex-wrap: wrap;
@@ -83,28 +83,32 @@ h1 {
   display: flex;
   gap: 24px;
   align-items: center;
-  flex: 1;
+  justify-content: center;
 }
 
 .detected-note-display,
-.detected-frequency-display {
+.detected-frequency-display,
+.accuracy-display {
   text-align: center;
   padding: 16px;
   background: var(--surface-elevated);
   border-radius: var(--radius-md);
   border: 1px solid rgba(187, 247, 208, 0.3);
   transition: all 0.2s ease;
-  min-width: 120px;
+  min-width: 160px;
+  width: 160px;
 }
 
 .detected-note-display:hover,
-.detected-frequency-display:hover {
+.detected-frequency-display:hover,
+.accuracy-display:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
 }
 
 .detected-note-display .label,
-.detected-frequency-display .label {
+.detected-frequency-display .label,
+.accuracy-display .label {
   display: block;
   font-size: 0.875rem;
   font-weight: 500;
@@ -115,7 +119,8 @@ h1 {
 }
 
 #current-detected-note,
-#current-detected-frequency {
+#current-detected-frequency,
+#live-accuracy {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -126,31 +131,55 @@ h1 {
 .game-controls {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 15px;
   flex-wrap: wrap;
 }
 
 .control-btn {
-  background: linear-gradient(135deg, #10b981, #059669);
+  padding: 10px 20px;
+  background: #667eea;
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: var(--radius-md);
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 5px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
-  min-width: 100px;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  margin: 0 5px;
 }
 
 .control-btn:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: #5a67d8;
 }
 
-.control-btn:active {
+.control-btn:disabled {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.control-btn.paused {
+  background: #e53e3e;
+}
+
+.control-btn.paused:hover {
+  background: #c53030;
+}
+
+.control-btn.end-game {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+  transition: all 0.3s ease;
+}
+
+.control-btn.end-game:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+  background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+}
+
+.control-btn.end-game:active {
   transform: translateY(0);
   box-shadow: var(--shadow-sm);
 }
@@ -163,6 +192,32 @@ h1 {
   padding: 16px 20px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(187, 247, 208, 0.3);
+}
+
+.note-label-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-elevated);
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(187, 247, 208, 0.3);
+}
+
+.note-label-toggle label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 80px;
+}
+
+#note-labels-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #10b981;
+  cursor: pointer;
 }
 
 .tempo-control label {
@@ -252,45 +307,6 @@ h1 {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
 }
 
-/* Note name section */
-.note-name-section {
-  margin-top: 48px;
-  text-align: center;
-}
-
-.note-name-section h2 {
-  margin-bottom: 24px;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-on-dark);
-  letter-spacing: -0.025em;
-}
-
-.note-names {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
-  max-width: 800px;
-  margin: 0 auto;
-  font-size: 1.125rem;
-}
-
-.note-names div {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  padding: 16px 12px;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  transition: all 0.2s ease;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.note-names div:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: #cbd5e1;
-}
 
 /* Score counters */
 #correct-count,
@@ -322,6 +338,7 @@ h1 {
 #wrong-count {
   color: var(--accent-error);
 }
+
 
 /* Flash animations for score updates */
 @keyframes flash-correct {
@@ -462,4 +479,8 @@ h1 {
   text-anchor: middle;
   dominant-baseline: middle;
   pointer-events: none;
+}
+
+.note-letter.hidden {
+  display: none;
 }
