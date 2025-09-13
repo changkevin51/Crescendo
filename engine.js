@@ -41,8 +41,9 @@ let lastDetectionTime = 0;
 let noteDetectionHistory = [];
 const NOTE_CHANGE_THRESHOLD = 300; // ms to consider a "new" note
 const WRONG_NOTE_BUFFER_PERIOD = 400; // ms buffer before marking as wrong
-const HIGH_CONFIDENCE_WINDOW = 500; // ms window to collect high-confidence samples
-const MIN_CONFIDENCE_FOR_SAMPLE = 0.8; // minimum confidence to include in mode calculation
+const HIGH_CONFIDENCE_WINDOW = 300; // ms window to collect samples
+const MIN_CONFIDENCE_FOR_SAMPLE = 0.4; // minimum confidence to include in detection
+const SMOOTHING_WINDOW = 150; // ms for smoothing fluctuating detections
 
 // Staff lines (y-coordinates)
 const lineYs = [40, 60, 80, 100, 120];
@@ -297,25 +298,37 @@ function checkNoteJudgments() {
   });
 }
 
-// Helper function to calculate mode of detected notes
-function calculateNoteMode(samples) {
+// Helper function to smooth fluctuating note detections
+function getSmoothedNote(samples, currentTime) {
   if (samples.length === 0) return null;
   
-  const noteCounts = {};
-  samples.forEach(sample => {
-    noteCounts[sample.note] = (noteCounts[sample.note] || 0) + sample.confidence;
+  // Get recent samples for smoothing
+  const recentSamples = samples.filter(s => currentTime - s.time <= SMOOTHING_WINDOW);
+  if (recentSamples.length === 0) return null;
+  
+  // Weight by confidence and recency
+  const noteWeights = {};
+  recentSamples.forEach(sample => {
+    const recencyWeight = 1 - (currentTime - sample.time) / SMOOTHING_WINDOW;
+    const weight = sample.confidence * recencyWeight;
+    noteWeights[sample.note] = (noteWeights[sample.note] || 0) + weight;
   });
   
-  let maxCount = 0;
-  let modeNote = null;
-  for (const [note, count] of Object.entries(noteCounts)) {
-    if (count > maxCount) {
-      maxCount = count;
-      modeNote = note;
+  // Find the note with highest weight
+  let maxWeight = 0;
+  let bestNote = null;
+  let totalWeight = 0;
+  
+  for (const [note, weight] of Object.entries(noteWeights)) {
+    totalWeight += weight;
+    if (weight > maxWeight) {
+      maxWeight = weight;
+      bestNote = note;
     }
   }
   
-  return { note: modeNote, confidence: maxCount / samples.length };
+  const confidence = totalWeight > 0 ? maxWeight / totalWeight : 0;
+  return { note: bestNote, confidence, sampleCount: recentSamples.length };
 }
 
 function judgeNote(note, closestUpcomingNote = null) {
@@ -325,12 +338,12 @@ function judgeNote(note, closestUpcomingNote = null) {
   const pitchData = pitchDetector.detectPitch();
   const expectedNoteName = note.noteName.replace(/[0-9]/g, '');
   
-  // Collect high-confidence samples for this note
-  if (pitchData && pitchData.confidence >= MIN_CONFIDENCE_FOR_SAMPLE && pitchData.volume > 8) {
+  // Collect samples with lower threshold to catch more detections
+  if (pitchData && pitchData.confidence >= MIN_CONFIDENCE_FOR_SAMPLE && pitchData.volume > 5) {
     const detectedNote = pitchDetector.frequencyToNote(pitchData.frequency);
     const detectedNoteName = detectedNote.note;
     
-    // Add to high-confidence samples for this specific note
+    // Add to samples for this specific note
     note.highConfidenceSamples.push({
       note: detectedNoteName,
       confidence: pitchData.confidence,
@@ -338,7 +351,7 @@ function judgeNote(note, closestUpcomingNote = null) {
       cents: Math.abs(detectedNote.cents)
     });
     
-    // Keep only samples from the last HIGH_CONFIDENCE_WINDOW ms
+    // Keep only samples from the last window
     note.highConfidenceSamples = note.highConfidenceSamples.filter(
       sample => currentTime - sample.time <= HIGH_CONFIDENCE_WINDOW
     );
@@ -361,33 +374,35 @@ function judgeNote(note, closestUpcomingNote = null) {
     lastDetectionTime = currentTime;
   }
   
-  // Analyze collected samples to determine the most likely played note
-  if (note.highConfidenceSamples.length >= 3) { // Need at least 3 samples
-    const modeResult = calculateNoteMode(note.highConfidenceSamples);
+  // Use smoothed detection with lower requirements
+  if (note.highConfidenceSamples.length >= 2) { // Reduced from 3 to 2
+    const smoothedResult = getSmoothedNote(note.highConfidenceSamples, currentTime);
     
-    if (modeResult && modeResult.confidence > 0.85) {
-      // Check if the mode matches the expected note
-      if (modeResult.note === expectedNoteName) {
+    if (smoothedResult && smoothedResult.sampleCount >= 2) {
+      // Check if the smoothed note matches the expected note
+      if (smoothedResult.note === expectedNoteName) {
         // Additional check: make sure this note is actually the closest one to judge
         if (!closestUpcomingNote || closestUpcomingNote === note) {
-          // Verify that recent samples are consistent and have good pitch accuracy
-          const recentSamples = note.highConfidenceSamples
-            .filter(s => s.note === expectedNoteName && currentTime - s.time <= 200)
-            .filter(s => s.cents < 50); // Good pitch accuracy
+          // Check for reasonable confidence and pitch accuracy
+          const goodSamples = note.highConfidenceSamples
+            .filter(s => s.note === expectedNoteName)
+            .filter(s => s.confidence > 0.3 && s.cents < 75); // More lenient
           
-          if (recentSamples.length >= 2) {
+          if (goodSamples.length >= 1 && smoothedResult.confidence > 0.3) {
             markNoteCorrect(note);
             return;
           }
         }
       } else {
-        // Mode is a different note - start buffer period or mark wrong
-        if (!note.wrongDetectionTime) {
+        // Different note detected - start buffer period or mark wrong
+        if (!note.wrongDetectionTime && smoothedResult.confidence > 0.5) {
           note.wrongDetectionTime = currentTime;
           note.inBufferPeriod = true;
-        } else if (currentTime - note.wrongDetectionTime > WRONG_NOTE_BUFFER_PERIOD) {
-          markNoteWrong(note, modeResult.note);
-          return;
+        } else if (note.wrongDetectionTime && currentTime - note.wrongDetectionTime > WRONG_NOTE_BUFFER_PERIOD) {
+          if (smoothedResult.confidence > 0.4) {
+            markNoteWrong(note, smoothedResult.note);
+            return;
+          }
         }
       }
     }
@@ -395,14 +410,14 @@ function judgeNote(note, closestUpcomingNote = null) {
   
   // Check if we're in buffer period and should look for recovery
   if (note.inBufferPeriod && note.wrongDetectionTime) {
-    // Check if we've collected enough correct samples during buffer period
+    // Check if we've detected correct note during buffer period
     const bufferSamples = note.highConfidenceSamples.filter(
       s => s.time >= note.wrongDetectionTime && s.note === expectedNoteName
     );
     
-    if (bufferSamples.length >= 2) {
-      const bufferMode = calculateNoteMode(bufferSamples);
-      if (bufferMode && bufferMode.note === expectedNoteName && bufferMode.confidence > 0.8) {
+    if (bufferSamples.length >= 1) { // More lenient
+      const bufferSmoothed = getSmoothedNote(bufferSamples, currentTime);
+      if (bufferSmoothed && bufferSmoothed.note === expectedNoteName && bufferSmoothed.confidence > 0.3) {
         markNoteCorrect(note);
         return;
       }
@@ -415,8 +430,10 @@ function judgeNote(note, closestUpcomingNote = null) {
       );
       
       if (wrongSamples.length > 0) {
-        const wrongMode = calculateNoteMode(wrongSamples);
-        markNoteWrong(note, wrongMode ? wrongMode.note : 'Unknown');
+        const wrongSmoothed = getSmoothedNote(wrongSamples, currentTime);
+        if (wrongSmoothed && wrongSmoothed.confidence > 0.4) {
+          markNoteWrong(note, wrongSmoothed.note);
+        }
       }
     }
   }

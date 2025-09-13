@@ -45,7 +45,6 @@ h1 {
 
 /* Score display (Correct / Missed / Wrong) */
 .score-display {
-<<<<<<< HEAD
   display: flex;
   justify-content: center;
   gap: 24px;
@@ -57,126 +56,168 @@ h1 {
 .score-display span {
   font-weight: 600;
   transition: transform 0.2s ease;
-=======
-  text-align: center;
-  margin: 20px 0;
-  font-size: 18px;
-  font-weight: bold;
 }
 
-.score-display span {
-  margin: 0 20px;
-  padding: 10px 15px;
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.score-display span:hover {
+  transform: translateY(-1px);
 }
 
-.current-detection-display {
-  text-align: center;
-  margin: 20px 0;
-  padding: 15px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+/* Unified controls container */
+.unified-controls {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin: 24px auto;
+  max-width: 1000px;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
 }
 
 .detection-info {
   display: flex;
-  justify-content: center;
-  gap: 40px;
+  gap: 24px;
   align-items: center;
+  flex: 1;
 }
 
-.detected-note-display, .detected-frequency-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.detected-note-display,
+.detected-frequency-display {
+  text-align: center;
+  padding: 16px;
+  background: var(--surface-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(187, 247, 208, 0.3);
+  transition: all 0.2s ease;
+  min-width: 120px;
 }
 
-.detected-note-display .label, .detected-frequency-display .label {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 5px;
+.detected-note-display:hover,
+.detected-frequency-display:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
-#current-detected-note {
-  font-size: 24px;
-  font-weight: bold;
-  color: #2196F3;
-  min-width: 60px;
+.detected-note-display .label,
+.detected-frequency-display .label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
+#current-detected-note,
 #current-detected-frequency {
-  font-size: 18px;
-  font-weight: bold;
-  color: #4CAF50;
-  min-width: 80px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Inter', monospace;
 }
 
+/* Game controls within unified container */
 .game-controls {
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 30px;
-  margin: 20px 0;
-  padding: 15px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .control-btn {
-  padding: 10px 20px;
-  font-size: 16px;
-  font-weight: bold;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-}
-
-#pause-btn {
-  background-color: #FF9800;
+  background: linear-gradient(135deg, #10b981, #059669);
   color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  min-width: 100px;
 }
 
-#pause-btn:hover {
-  background-color: #F57C00;
+.control-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
-#pause-btn.paused {
-  background-color: #4CAF50;
-}
-
-#pause-btn.paused:hover {
-  background-color: #45a049;
+.control-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .tempo-control {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  background: var(--surface-elevated);
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(187, 247, 208, 0.3);
 }
 
 .tempo-control label {
-  font-weight: bold;
-  color: #333;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 50px;
 }
 
 #tempo-slider {
   width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: #e2e8f0;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#tempo-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+#tempo-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+#tempo-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 #tempo-value {
-  font-weight: bold;
-  color: #2196F3;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
   min-width: 40px;
->>>>>>> 38c48bf34db1e08e17805a5a3c6be745687692b4
-}
-
-.score-display span:hover {
-  transform: translateY(-1px);
+  font-family: 'Inter', monospace;
 }
 
 /* Staff container */
@@ -203,7 +244,7 @@ h1 {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 200px;
+  left: 100px;
   width: 3px;
   background: linear-gradient(180deg, var(--accent-error), #dc2626);
   z-index: 10;
@@ -352,13 +393,43 @@ h1 {
     font-size: 1rem;
   }
 
+  .unified-controls {
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    margin: 20px auto;
+  }
+
+  .detection-info {
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+  }
+
+  .game-controls {
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tempo-control {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  #tempo-slider {
+    width: 200px;
+  }
+
   .staff-wrapper {
     padding: 16px;
     margin: 24px auto;
   }
 
   .judgment-line {
-    left: 150px;
+    left: 80px;
   }
 
   .note-names {

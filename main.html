@@ -14,56 +14,32 @@
   <main>
     <h1>Whole, Half, and Quarter Notes (4/4 Time)</h1>
 
-<<<<<<< HEAD
     <div class="score-display">
-      <span id="correct">Correct: <span id="correct-count">0</span></span>
-      <span id="missed">Missed: <span id="missed-count">0</span></span>
-      <span id="wrong">Wrong: <span id="wrong-count">0</span></span>
-=======
-  <div class="score-display">
-    <span>Correct: <span id="correct-count">0</span></span>
-    <span>Missed: <span id="missed-count">0</span></span>
-    <span>Wrong: <span id="wrong-count">0</span></span>
-  </div>
-
-  <div class="current-detection-display">
-    <div class="detection-info">
-      <div class="detected-note-display">
-        <span class="label">Current Note:</span>
-        <span id="current-detected-note">-</span>
-      </div>
-      <div class="detected-frequency-display">
-        <span class="label">Frequency:</span>
-        <span id="current-detected-frequency">- Hz</span>
-      </div>
+      <span>Correct: <span id="correct-count">0</span></span>
+      <span>Missed: <span id="missed-count">0</span></span>
+      <span>Wrong: <span id="wrong-count">0</span></span>
     </div>
-  </div>
 
-  <div class="game-controls">
-    <button id="pause-btn" class="control-btn">Pause</button>
-    <div class="tempo-control">
-      <label for="tempo-slider">Tempo:</label>
-      <input type="range" id="tempo-slider" min="0.5" max="3" step="0.1" value="1">
-      <span id="tempo-value">1.0x</span>
-    </div>
-  </div>
-
-  <div class="staff-wrapper">
-    <div class="judgment-line"></div>
-    <svg id="music-staff" class="staff" width="8000" viewBox="0 0 8000 160" preserveAspectRatio="xMinYMin meet">
-      <g stroke="black" stroke-width="1" id="staff-lines"></g>
-      <g stroke="black" stroke-width="1" id="bar-lines"></g>
-      <g id="note-group" fill="black"></g>
-    </svg>
-  </div>
-
-  <div class="note-name-section">
-    <h2>Note Names</h2>
-    <div class="note-names">
-      <div>A</div><div>A♯ / B♭</div><div>B</div><div>C</div><div>C♯ / D♭</div>
-      <div>D</div><div>D♯ / E♭</div><div>E</div><div>F</div><div>F♯ / G♭</div>
-      <div>G</div><div>G♯ / A♭</div>
->>>>>>> 38c48bf34db1e08e17805a5a3c6be745687692b4
+    <div class="unified-controls">
+      <div class="detection-info">
+        <div class="detected-note-display">
+          <span class="label">Current Note:</span>
+          <span id="current-detected-note">-</span>
+        </div>
+        <div class="detected-frequency-display">
+          <span class="label">Frequency:</span>
+          <span id="current-detected-frequency">- Hz</span>
+        </div>
+      </div>
+      
+      <div class="game-controls">
+        <button id="pause-btn" class="control-btn">Pause</button>
+        <div class="tempo-control">
+          <label for="tempo-slider">Tempo:</label>
+          <input type="range" id="tempo-slider" min="0.5" max="3" step="0.1" value="1">
+          <span id="tempo-value">1.0x</span>
+        </div>
+      </div>
     </div>
 
     <div class="staff-wrapper">
@@ -73,6 +49,15 @@
         <g stroke="black" stroke-width="1" id="bar-lines"></g>
         <g id="note-group" fill="black"></g>
       </svg>
+    </div>
+
+    <div class="note-name-section">
+      <h2>Note Names</h2>
+      <div class="note-names">
+        <div>A</div><div>A♯ / B♭</div><div>B</div><div>C</div><div>C♯ / D♭</div>
+        <div>D</div><div>D♯ / E♭</div><div>E</div><div>F</div><div>F♯ / G♭</div>
+        <div>G</div><div>G♯ / A♭</div>
+      </div>
     </div>
   </main>
 
