@@ -33,3 +33,23 @@ svg.staff {
   padding: 6px 10px;
   border-radius: 6px;
 }
+
+.score-display {
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.score-display span {
+  margin-right: 20px;
+}
+
+.judgment-line {
+  position: absolute;
+  left: 80px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: red;
+  z-index: 10;
+}
