@@ -1,9 +1,8 @@
-let scrollSpeedSeconds = 80;
+let totalScrollTime = 80;
 let tempoMultiplier = 1.0;
-const unitSpacingQuarter = 60;
-const unitSpacingHalf = 120;
-const unitSpacingWhole = 240;
-const minSpacingAfterLastNote = 30;
+const quarterNoteSpacing = 60;
+const halfNoteSpacing = 120;
+const wholeNoteSpacing = 240;
 const screenWidth = window.innerWidth;
 const noteOffsetFromBar = 30;
 const judgmentLineX = 80;
@@ -21,6 +20,7 @@ const pauseBtn = document.getElementById('pause-btn');
 const endGameBtn = document.getElementById('end-game-btn');
 const tempoSlider = document.getElementById('tempo-slider');
 const tempoValue = document.getElementById('tempo-value');
+const metronomeCheckbox = document.getElementById('metronome-checkbox');
 
 // Game state
 let gameNotes = [];
@@ -39,6 +39,12 @@ let noteStatistics = null;
 let currentNoteIndex = 0;
 let maxStreak = 0;
 let currentStreak = 0;
+let level = 1;
+
+// Metronome state
+let metronomeInterval = null;
+let metronomeAudioContext = null;
+let isMetronomeEnabled = false;
 
 // Note detection state
 let lastDetectedNote = null;
@@ -107,9 +113,9 @@ measures.forEach(measure => {
   currentX += noteOffsetFromBar;
 
   measure.forEach(note => {
-    let spacing = note.beats === 1 ? unitSpacingQuarter
-               : note.beats === 2 ? unitSpacingHalf
-               : unitSpacingWhole;
+    let spacing = note.beats === 1 ? quarterNoteSpacing
+               : note.beats === 2 ? halfNoteSpacing
+               : wholeNoteSpacing;
 
     // Create note object for game tracking
     const gameNote = {
@@ -197,7 +203,7 @@ measures.forEach(measure => {
   });
 
   // Bar line position - at least 30px after last note
-  const barX = currentX + minSpacingAfterLastNote;
+  const barX = currentX;
   const barLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
   barLine.setAttribute("x1", barX);
   barLine.setAttribute("x2", barX);
@@ -226,6 +232,26 @@ async function initializeGame() {
   }
 }
 
+function showLevelText() {
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("x", 200);
+  text.setAttribute("y", lineYs[2]);
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "middle");
+  text.setAttribute("font-size", "40");
+  text.setAttribute("fill", "black");
+  text.setAttribute("class", "fade-text");
+  text.textContent = `Level ${level}`;
+  svg.appendChild(text);
+  
+  // Remove the text after animation completes
+  setTimeout(() => {
+      if (text.parentNode) {
+          text.parentNode.removeChild(text);
+      }
+  }, 3000); // Remove after 3 seconds
+}
+
 function startGame() {
   gameStartTime = Date.now();
   isGameRunning = true;
@@ -245,7 +271,7 @@ function startGame() {
   
   // Animate scroll
   const scrollDistance = currentX + 200;
-  const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+  const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   noteGroup.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
   barLines.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
   
@@ -257,6 +283,8 @@ function startGame() {
     }
   `;
   document.head.appendChild(style);
+  
+  showLevelText();
   
   // Start judgment loop
   gameLoop();
@@ -275,7 +303,7 @@ function gameLoop() {
 function checkNoteJudgments() {
   const currentTime = Date.now();
   const elapsedTime = (currentTime - gameStartTime - totalPausedTime) / 1000;
-  const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+  const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   const scrollProgress = elapsedTime / adjustedScrollSpeed;
   const totalScrollDistance = currentX + 200;
   const currentScrollX = scrollProgress * totalScrollDistance;
@@ -674,7 +702,7 @@ function togglePause() {
     totalPausedTime += Date.now() - pausedTime;
     
     // Resume animations
-    const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
     noteGroup.style.animationPlayState = 'running';
     barLines.style.animationPlayState = 'running';
   } else {
@@ -697,7 +725,7 @@ function updateTempo() {
   if (isGameRunning && !isPaused) {
     // Update animation speed
     const scrollDistance = currentX + 200;
-    const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
     
     // Remove existing animations
     noteGroup.style.animation = 'none';

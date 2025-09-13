@@ -275,6 +275,32 @@ h1 {
   font-family: 'Inter', monospace;
 }
 
+.checkbox-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-elevated);
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(187, 247, 208, 0.3);
+}
+
+.checkbox-control label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.checkbox-control input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent-success);
+}
+
 /* Staff container */
 .staff-wrapper {
   position: relative;
@@ -339,6 +365,29 @@ h1 {
   color: var(--accent-error);
 }
 
+
+.fade-text {
+  animation: fadeInOut 3s ease-in-out forwards;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    font-size: 40px;
+  }
+  20% {
+    opacity: 1;
+    font-size: 40px;
+  }
+  80% {
+    opacity: 1;
+    font-size: 40px;
+  }
+  100% {
+    opacity: 0;
+    font-size: 60px;
+  }
+}
 
 /* Flash animations for score updates */
 @keyframes flash-correct {
