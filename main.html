@@ -1,36 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Music Staff with Notes</title>
-  <link rel="stylesheet" href="mainstyles.css">
+  <link rel="stylesheet" href="styles/modern-music-app.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="mainstyles.css" rel="stylesheet">
 </head>
 <body>
-  <h1>Whole, Half, and Quarter Notes (4/4 Time)</h1>
+  <main>
+    <h1>Whole, Half, and Quarter Notes (4/4 Time)</h1>
 
-  <div class="score-display">
-    <span>Correct: <span id="correct-count">0</span></span>
-    <span>Missed: <span id="missed-count">0</span></span>
-    <span>Wrong: <span id="wrong-count">0</span></span>
-  </div>
-
-  <div class="staff-wrapper">
-    <div class="judgment-line"></div>
-    <svg id="music-staff" class="staff" width="8000" viewBox="0 0 8000 160" preserveAspectRatio="xMinYMin meet">
-      <g stroke="black" stroke-width="1" id="staff-lines"></g>
-      <g stroke="black" stroke-width="1" id="bar-lines"></g>
-      <g id="note-group" fill="black"></g>
-    </svg>
-  </div>
-
-  <div class="note-name-section">
-    <h2>Note Names</h2>
-    <div class="note-names">
-      <div>A</div><div>A♯ / B♭</div><div>B</div><div>C</div><div>C♯ / D♭</div>
-      <div>D</div><div>D♯ / E♭</div><div>E</div><div>F</div><div>F♯ / G♭</div>
-      <div>G</div><div>G♯ / A♭</div>
+    <div class="score-display">
+      <span id="correct">Correct: <span id="correct-count">0</span></span>
+      <span id="missed">Missed: <span id="missed-count">0</span></span>
+      <span id="wrong">Wrong: <span id="wrong-count">0</span></span>
     </div>
-  </div>
+
+    <div class="staff-wrapper">
+      <div class="judgment-line"></div>
+      <svg id="music-staff" class="staff" width="8000" viewBox="0 0 8000 160" preserveAspectRatio="xMinYMin meet">
+        <g stroke="black" stroke-width="1" id="staff-lines"></g>
+        <g stroke="black" stroke-width="1" id="bar-lines"></g>
+        <g id="note-group" fill="black"></g>
+      </svg>
+    </div>
+  </main>
 
   <script src="https://unpkg.com/meyda@5.6.3/dist/web/meyda.min.js"></script>
   <script src="pitch-detector.js"></script>
