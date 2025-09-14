@@ -394,8 +394,11 @@
                     Create a Room
                 </button>
                 <!-- Added join-room class and updated onclick -->
-                <button class="sub-button join-room" id="joinRoomBtn" onclick="showJoinRoom()">
-                    Join a Room
+                <button class="sub-button join-room" id="joinRoomBtn" onclick="joinPrivateRoom()">
+                    Join Private Room
+                </button>
+                <button class="sub-button create-room" onclick="browsePublicRooms()">
+                    Browse Public Rooms
                 </button>
             </div>
 
@@ -421,8 +424,8 @@
 
     <script>
         function startSinglePlayer() {
-            alert('Starting Single Player mode!');
-            // Add your single player logic here
+            // Redirect to main.html for single player game
+            window.location.href = 'main.html';
         }
 
         function toggleMultiplayer() {
@@ -456,22 +459,13 @@
         }
 
         function createRoom() {
-            alert('Creating a new room!');
-            // Add your create room logic here
+            // Redirect to room creation page
+            window.location.href = 'waiting-room.html?action=create';
         }
 
-        function showJoinRoom() {
-            const roomCodeContainer = document.getElementById('roomCodeContainer');
-            const joinRoomBtn = document.getElementById('joinRoomBtn');
-            
-            joinRoomBtn.classList.add('expanded');
-            
-            roomCodeContainer.classList.add('show');
-            
-            // Focus on first input
-            setTimeout(() => {
-                document.querySelector('.code-input').focus();
-            }, 100);
+        function joinPrivateRoom() {
+            // Redirect directly to waiting room with join action
+            window.location.href = 'waiting-room.html?action=join';
         }
 
         function moveToNext(current, index) {
@@ -493,6 +487,11 @@
             });
         }
 
+        function browsePublicRooms() {
+            // Redirect to waiting room to browse public rooms
+            window.location.href = 'waiting-room.html?action=browse';
+        }
+
         function submitRoomCode() {
             const inputs = document.querySelectorAll('.code-input');
             let roomCode = '';
@@ -502,8 +501,8 @@
             });
             
             if (roomCode.length === 4) {
-                alert(`Joining room: ${roomCode}`);
-                // Add your join room logic here
+                // Redirect to waiting room with room code
+                window.location.href = `waiting-room.html?action=join&code=${roomCode}`;
             } else {
                 alert('Please enter a complete 4-character room code');
             }

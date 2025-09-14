@@ -860,10 +860,68 @@ async function endGameAndAnalyze() {
       maxStreak: maxStreak
     };
     
-    console.log('🎮 Game Stats:', gameStats);
+    console.log(' Game Stats:', gameStats);
     
     noteStatistics.endSession(gameStats);
     
+    // Check if this is a multiplayer session
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+    const isMultiplayer = roomId && window.socket;
+    
+    if (isMultiplayer) {
+      // Submit results to multiplayer room
+      const accuracy = gameStats.totalNotes > 0 ? (gameStats.correctNotes / gameStats.totalNotes * 100) : 0;
+      const sessionData = noteStatistics.getSessionDataForAnalysis();
+      
+      window.socket.emit('submit-game-result', {
+        roomId: roomId,
+        accuracy: accuracy,
+        correctNotes: gameStats.correctNotes,
+        totalNotes: gameStats.totalNotes,
+        score: gameStats.score,
+        maxStreak: gameStats.maxStreak,
+        sessionId: sessionData.sessionId
+      });
+      
+      // Show waiting message for other players
+      const waitingDiv = document.createElement('div');
+      waitingDiv.innerHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
+          <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
+            <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
+            <h2 style="margin-bottom: 15px;">🎵 Waiting for Other Players...</h2>
+            <p>Your results have been submitted! Waiting for other players to finish.</p>
+            <div id="players-status" style="margin-top: 20px; font-size: 14px; color: #666;"></div>
+          </div>
+        </div>
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      `;
+      document.body.appendChild(waitingDiv);
+      
+      // Listen for other players finishing
+      window.socket.on('player-finished', (data) => {
+        const statusDiv = document.getElementById('players-status');
+        if (statusDiv) {
+          statusDiv.innerHTML = `${data.playersFinished}/${data.totalPlayers} players finished`;
+        }
+      });
+      
+      // Listen for game completion
+      window.socket.on('game-completed', (data) => {
+        document.body.removeChild(waitingDiv);
+        showMultiplayerResults(data.results, sessionData.sessionId);
+      });
+      
+      return;
+    }
+    
+    // Single player analysis
     // Show loading message
     const loadingDiv = document.createElement('div');
     loadingDiv.innerHTML = `
@@ -918,6 +976,64 @@ async function endGameAndAnalyze() {
   } else {
     alert('No statistics data available. Please start a new game.');
   }
+}
+
+function showMultiplayerResults(results, sessionId) {
+  // Find current player's result
+  const currentUser = localStorage.getItem('currentUsername') || 'You';
+  const myResult = results.find(r => r.userId === currentUser);
+  const isWinner = myResult && myResult.isWinner;
+  
+  const resultsDiv = document.createElement('div');
+  resultsDiv.innerHTML = `
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
+      <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 600px; max-height: 80vh; overflow-y: auto;">
+        <div style="font-size: 60px; margin-bottom: 20px;">
+          ${isWinner ? '🏆' : '🎵'}
+        </div>
+        <h2 style="margin-bottom: 20px; color: ${isWinner ? '#10b981' : '#667eea'};">
+          ${isWinner ? 'Congratulations! You Won!' : 'Great Performance!'}
+        </h2>
+        
+        <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+          <h3 style="margin-bottom: 15px; color: #1a202c;">Final Rankings</h3>
+          ${results.map((result, index) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; margin: 5px 0; background: ${result.userId === currentUser ? '#e6fffa' : 'white'}; border-radius: 8px; border: ${result.userId === currentUser ? '2px solid #10b981' : '1px solid #e2e8f0'};">
+              <div style="display: flex; align-items: center;">
+                <span style="font-size: 20px; margin-right: 10px;">
+                  ${index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                </span>
+                <span style="font-weight: ${result.userId === currentUser ? 'bold' : 'normal'};">
+                  ${result.userId}${result.userId === currentUser ? ' (You)' : ''}
+                </span>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-weight: bold; color: #10b981;">${result.accuracy.toFixed(1)}%</div>
+                <div style="font-size: 12px; color: #666;">${result.correctNotes}/${result.totalNotes} notes</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+          <button onclick="window.location.href='analytics.html?session=${sessionId}&multiplayer=true'" 
+                  style="padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            View Detailed Analysis
+          </button>
+          <button onclick="window.location.href='waiting-room.html'" 
+                  style="padding: 12px 24px; background: #f8fafc; color: #4a5568; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            Play Again
+          </button>
+          <button onclick="window.location.href='home.html'" 
+                  style="padding: 12px 24px; background: #f8fafc; color: #4a5568; border: 1px solid #e2e8f0; border-radius: 8px; font-weight: 600; cursor: pointer;">
+            Back to Home
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(resultsDiv);
 }
 
 // Note label toggle functionality

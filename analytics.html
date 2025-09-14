@@ -474,6 +474,9 @@
 
         // Load and display analysis
         document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isMultiplayer = urlParams.get('multiplayer') === 'true';
+            
             if (sessionId === 'latest') {
                 // Get the most recent analysis
                 const analyses = await window.cohereAnalytics.getAllStoredAnalyses();
@@ -482,7 +485,8 @@
                     window.cohereAnalytics.renderAnalysis(
                         document.getElementById('analytics-container'),
                         latestAnalysis.analysis,
-                        latestAnalysis.sessionSummary
+                        latestAnalysis.sessionSummary,
+                        isMultiplayer
                     );
                 } else {
                     document.getElementById('analytics-container').innerHTML = `
@@ -494,7 +498,7 @@
                     `;
                 }
             } else {
-                await window.cohereAnalytics.displayAnalysis(sessionId, 'analytics-container');
+                await window.cohereAnalytics.displayAnalysis(sessionId, 'analytics-container', isMultiplayer);
             }
         });
 

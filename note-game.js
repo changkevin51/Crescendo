@@ -17,6 +17,11 @@ class NoteTrainingGame {
         this.totalNotes = 0;
         this.correctNotes = 0;
         this.timePerNote = 5; // seconds
+        
+        // Multiplayer synchronization
+        this.isMultiplayer = false;
+        this.multiplayerSequence = null;
+        this.syncStartTime = null;
         this.timeRemaining = 0;
         
         // Difficulty settings
@@ -26,7 +31,39 @@ class NoteTrainingGame {
             hard: { minOctave: 2, maxOctave: 7, notes: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] }
         };
         this.currentDifficulty = 'easy';
+    }
+    
+    // Set multiplayer sequence and synchronization
+    setMultiplayerSequence(musicSequence, syncStartTime) {
+        this.isMultiplayer = true;
+        this.multiplayerSequence = musicSequence;
+        this.syncStartTime = syncStartTime;
         
+        // Wait for sync time and then start the game automatically
+        const waitTime = syncStartTime - Date.now();
+        if (waitTime > 0) {
+            setTimeout(() => {
+                this.startSynchronizedGame();
+            }, waitTime);
+        } else {
+            // Start immediately if sync time has passed
+            this.startSynchronizedGame();
+        }
+    }
+    
+    // Start synchronized multiplayer game
+    startSynchronizedGame() {
+        if (!this.multiplayerSequence) return;
+        
+        // Use the synchronized sequence instead of generating random notes
+        this.gameNotes = this.multiplayerSequence.gameNotes;
+        this.totalScrollTime = this.multiplayerSequence.totalScrollTime;
+        
+        // Start the game with synchronized timing
+        this.startGame();
+    }
+    
+    init() {
         // Detection state
         this.detectedNote = null;
         this.detectedOctave = null;

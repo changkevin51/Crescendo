@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crescendo - Dashboard</title>
+    <link rel="stylesheet" href="mainstyles.css">
+    <link rel="stylesheet" href="waiting-room.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>🎵 Crescendo Dashboard</h1>
+                <p>Real-time Room Monitoring</p>
+            </div>
+            <div class="user-info">
+                <button id="refreshBtn" class="btn btn-accent">🔄 Refresh</button>
+                <a href="waiting-room.html" class="btn btn-primary">Join Rooms</a>
+                <a href="home.html" class="btn btn-secondary">← Back to Home</a>
+            </div>
+        </header>
+
+        <div class="dashboard-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>🏠 Total Rooms</h3>
+                    <div class="stat-value" id="totalRooms">0</div>
+                    <p>Active rooms</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🌐 Public Rooms</h3>
+                    <div class="stat-value" id="publicRooms">0</div>
+                    <p>Discoverable rooms</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🔒 Private Rooms</h3>
+                    <div class="stat-value" id="privateRooms">0</div>
+                    <p>Code-protected rooms</p>
+                </div>
+                <div class="stat-card">
+                    <h3>👥 Total Users</h3>
+                    <div class="stat-value" id="totalUsers">0</div>
+                    <p>Connected participants</p>
+                </div>
+            </div>
+
+            <div class="rooms-section">
+                <div class="section-header">
+                    <h2>🌐 Public Rooms</h2>
+                    <div class="filter-controls">
+                        <select id="instrumentFilter">
+                            <option value="">All Instruments</option>
+                            <option value="piano">Piano</option>
+                            <option value="guitar">Guitar</option>
+                            <option value="violin">Violin</option>
+                            <option value="drums">Drums</option>
+                            <option value="bass">Bass</option>
+                            <option value="vocals">Vocals</option>
+                            <option value="saxophone">Saxophone</option>
+                            <option value="trumpet">Trumpet</option>
+                            <option value="flute">Flute</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <select id="skillFilter">
+                            <option value="">All Skill Levels</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                            <option value="professional">Professional</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="publicRoomsList" class="dashboard-rooms-list">
+                    <div class="loading">Loading rooms...</div>
+                </div>
+            </div>
+
+            <div class="activity-section">
+                <h2>📊 Recent Activity</h2>
+                <div id="activityFeed" class="activity-feed">
+                    <!-- Activity items will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

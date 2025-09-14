@@ -283,7 +283,7 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
         return analyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     }
 
-    async displayAnalysis(sessionId, containerId = 'analytics-container') {
+    async displayAnalysis(sessionId, containerId = 'analytics-container', isMultiplayer = false) {
         const container = document.getElementById(containerId);
         if (!container) {
             console.error(`Container with id '${containerId}' not found`);
@@ -304,7 +304,7 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
         if (storedAnalysis) {
             try {
                 const analysisData = JSON.parse(storedAnalysis);
-                this.renderAnalysis(container, analysisData.analysis, analysisData.sessionSummary);
+                this.renderAnalysis(container, analysisData.analysis, analysisData.sessionSummary, isMultiplayer);
                 return;
             } catch (error) {
                 console.warn('Could not load stored analysis:', error);
@@ -321,7 +321,7 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
         `;
     }
 
-    renderAnalysis(container, analysisText, sessionSummary) {
+    renderAnalysis(container, analysisText, sessionSummary, isMultiplayer = false) {
         // Parse the analysis text to extract judge sections
         const sections = this.parseAnalysisText(analysisText);
         
@@ -448,7 +448,11 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
                     </div>
                     
                     <div class="actions">
-                        <button onclick="window.location.href='main.html'" class="btn btn-primary">Practice Again</button>
+                        ${isMultiplayer ? 
+                            `<button onclick="window.location.href='waiting-room.html'" class="btn btn-primary">Play Again</button>
+                             <button onclick="window.location.href='home.html'" class="btn btn-secondary">Back to Home</button>` :
+                            `<button onclick="window.location.href='main.html'" class="btn btn-primary">Practice Again</button>`
+                        }
                         <button onclick="window.print()" class="btn btn-secondary">Save Analysis</button>
                         <button onclick="window.cohereAnalytics.shareAnalysis('${sessionSummary.sessionId || 'unknown'}')" class="btn btn-secondary">Share Results</button>
                     </div>
