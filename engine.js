@@ -8,10 +8,16 @@ const noteOffsetFromBar = 30;
 const judgmentLineX = 80;
 const judgmentTolerance = 30; // pixels tolerance for note judgment
 
+// Check if elements exist before using them
 const svg = document.getElementById("music-staff");
 const noteGroup = document.getElementById("note-group");
 const staffLines = document.getElementById("staff-lines");
 const barLines = document.getElementById("bar-lines");
+
+// If using OpenSheetMusicDisplay, these elements won't exist
+if (!svg || !noteGroup || !staffLines || !barLines) {
+  console.log('Custom SVG elements not found - likely using OpenSheetMusicDisplay');
+}
 
 // UI elements for new features
 const currentDetectedNote = document.getElementById('current-detected-note');
@@ -70,21 +76,29 @@ const yToNote = {
   120: 'E4', 130: 'D4', 140: 'C4'
 };
 
-// Draw staff lines
-lineYs.forEach(y => {
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line.setAttribute("x1", "0");
-  line.setAttribute("x2", "8000");
-  line.setAttribute("y1", y);
-  line.setAttribute("y2", y);
-  staffLines.appendChild(line);
-});
+// Draw staff lines only if staffLines element exists
+if (staffLines && staffLines !== null) {
+  lineYs.forEach(y => {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", "0");
+    line.setAttribute("x2", "8000");
+    line.setAttribute("y1", y);
+    line.setAttribute("y2", y);
+    staffLines.appendChild(line);
+  });
+} else {
+  console.log('staffLines element is null - skipping staff line generation');
+}
 
-const totalMeasures = 20;
-const measures = [];
+// Only generate measures if we have the required SVG elements
+if (!svg || !noteGroup || !staffLines || !barLines) {
+  console.log('SVG elements not found - skipping note generation for engine.js');
+} else {
+  const totalMeasures = 20;
+  const measures = [];
 
-// Generate measures randomly
-for (let i = 0; i < totalMeasures; i++) {
+  // Generate measures randomly
+  for (let i = 0; i < totalMeasures; i++) {
   const measure = [];
 
   // 25% chance whole note (4 beats alone)
@@ -103,13 +117,13 @@ for (let i = 0; i < totalMeasures; i++) {
     }
   }
 
-  measures.push(measure);
-}
+    measures.push(measure);
+  }
 
-let currentX = screenWidth;
-let noteIndex = 0;
+  let currentX = screenWidth;
+  let noteIndex = 0;
 
-measures.forEach(measure => {
+  measures.forEach(measure => {
   currentX += noteOffsetFromBar;
 
   measure.forEach(note => {
@@ -145,7 +159,9 @@ measures.forEach(measure => {
     ellipse.setAttribute("stroke", "black");
     ellipse.setAttribute("stroke-width", "1");
     ellipse.setAttribute("id", gameNote.id);
-    noteGroup.appendChild(ellipse);
+    if (noteGroup) {
+      noteGroup.appendChild(ellipse);
+    }
     gameNote.element = ellipse;
 
     // Stems for half and quarter notes
@@ -168,7 +184,9 @@ measures.forEach(measure => {
       stem.setAttribute("stroke", "black");
       stem.setAttribute("stroke-width", "1.5");
       stem.setAttribute("id", `stem-${noteIndex}`);
-      noteGroup.appendChild(stem);
+      if (noteGroup) {
+        noteGroup.appendChild(stem);
+      }
       gameNote.stemElement = stem;
     }
 
@@ -181,7 +199,9 @@ measures.forEach(measure => {
       ledger.setAttribute("y2", note.y);
       ledger.setAttribute("stroke", "black");
       ledger.setAttribute("stroke-width", "1");
-      noteGroup.appendChild(ledger);
+      if (noteGroup) {
+        noteGroup.appendChild(ledger);
+      }
     }
 
     // Add floating note letter above the note
@@ -194,7 +214,9 @@ measures.forEach(measure => {
     noteLetter.setAttribute("y", note.y - 20);
     noteLetter.setAttribute("class", "note-letter");
     noteLetter.setAttribute("id", `letter-${noteIndex}`);
-    noteGroup.appendChild(noteLetter);
+    if (noteGroup) {
+      noteGroup.appendChild(noteLetter);
+    }
     gameNote.letterElement = noteLetter;
 
     gameNotes.push(gameNote);
@@ -209,10 +231,13 @@ measures.forEach(measure => {
   barLine.setAttribute("x2", barX);
   barLine.setAttribute("y1", lineYs[0] - 5);
   barLine.setAttribute("y2", lineYs[lineYs.length - 1] + 5);
-  barLines.appendChild(barLine);
+  if (barLines) {
+    barLines.appendChild(barLine);
+  }
 
-  currentX = barX;
-});
+    currentX = barX;
+  });
+}
 
 // Initialize pitch detector and start game
 async function initializeGame() {
