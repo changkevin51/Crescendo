@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OSMD - One Line Sheet Music</title>
+  <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay/build/opensheetmusicdisplay.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      overflow: hidden;
+    }
+
+    #osmd-container {
+      width: 100%;
+      height: auto;
+      overflow-x: hidden;
+      border: 1px solid #ccc;
+      padding: 10px;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .scrolling-music {
+      animation: scrollLeft 60s linear;
+    }
+
+    @keyframes scrollLeft {
+      from { transform: translateX(0); }
+      to { transform: translateX(-80%); }
+    }
+
+    .judgment-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 100px;
+      width: 3px;
+      background: red;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+
+  </style>
+</head>
+<body>
+  <h1>OSMD - One Line Sheet Music</h1>
+  <div id="osmd-container">
+    <div class="judgment-line"></div>
+  </div>
+
+  <script>
+    const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmd-container", {
+      autoResize: false,
+      drawingParameters: "compacttight" // or "default"
+    });
+
+    async function renderMusicXML() {
+      // Load your MusicXML file (must be served over HTTP)
+      await osmd.load("3.1.a.Fur_Elise.xml"); // Make sure this file is in the same folder
+
+      // Force all music to be in a single horizontal line
+      osmd.EngravingRules.PageWidth = 5000; // Big enough to fit the whole piece
+      osmd.EngravingRules.RenderSingleHorizontalStaffline = true;
+
+      osmd.render();
+      
+      // Start scrolling after rendering
+      startScrolling();
+    }
+
+    function startScrolling() {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        musicSheet.classList.add('scrolling-music');
+      }
+    }
+
+    function pauseScrolling() {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        musicSheet.style.animationPlayState = 'paused';
+      }
+    }
+
+    function resumeScrolling() {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        musicSheet.style.animationPlayState = 'running';
+      }
+    }
+
+    function setScrollSpeed(speedMultiplier) {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        const baseDuration = 60; // seconds
+        const newDuration = baseDuration / speedMultiplier;
+        musicSheet.style.animationDuration = `${newDuration}s`;
+      }
+    }
+
+    renderMusicXML();
+  </script>
+</body>
+</html>

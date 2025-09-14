@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Music Staff with Notes</title>
-  <link rel="stylesheet" href="styles/modern-music-app.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="mainstyles.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay/build/opensheetmusicdisplay.min.js"></script>
 </head>
 <body>
   <main>
@@ -46,13 +46,8 @@
       </div>
     </div>
 
-    <div class="staff-wrapper">
+    <div id="osmd-container">
       <div class="judgment-line"></div>
-      <svg id="music-staff" class="staff" width="8000" viewBox="0 0 8000 160" preserveAspectRatio="xMinYMin meet">
-        <g stroke="black" stroke-width="1" id="staff-lines"></g>
-        <g stroke="black" stroke-width="1" id="bar-lines"></g>
-        <g id="note-group" fill="black"></g>
-      </svg>
     </div>
 
     <div class="note-name-section">
@@ -64,9 +59,454 @@
       </div>
     </div>
   </main>
+  <style>
+    #osmd-container {
+      width: 100%;
+      height: auto;
+      overflow-x: hidden;
+      border: 1px solid #ccc;
+      padding: 10px;
+      white-space: nowrap;
+      position: relative;
+    }
 
+    .scrolling-music {
+      animation: scrollLeft 60s linear;
+    }
+
+    @keyframes scrollLeft {
+      from { transform: translateX(0); }
+      to { transform: translateX(-80%); }
+    }
+
+    .judgment-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 100px;
+      width: 3px;
+      background: red;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+
+  </style>
   <script src="https://unpkg.com/meyda@5.6.3/dist/web/meyda.min.js"></script>
   <script src="pitch-detector.js"></script>
-  <script src="engine.js"></script>
+  <script src="note_statistics.js"></script>
+  <script>
+    // Game state variables
+    let pitchDetector = null;
+    let gameNotes = [];
+    let correctCount = 0;
+    let missedCount = 0;
+    let wrongCount = 0;
+    let isGameRunning = false;
+    let isPaused = false;
+    let gameStartTime = 0;
+    let totalPausedTime = 0;
+    let pausedTime = 0;
+    let detectionInterval = null;
+    let animationDuration = 60; // seconds
+    let tempoMultiplier = 1.0;
+    
+    // Note detection constants
+    const JUDGMENT_LINE_X = 100; // pixels from left where notes are judged
+    const JUDGMENT_TOLERANCE = 50; // pixels tolerance for note judgment
+    const MIN_CONFIDENCE = 0.3;
+    const NOTE_DETECTION_SAMPLES = 3; // number of consistent samples needed
+    
+    const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("osmd-container", {
+      autoResize: false,
+      drawingParameters: "compacttight" // or "default"
+    });
+
+    async function renderMusicXML() {
+      // Load your MusicXML file (must be served over HTTP)
+      await osmd.load("3.1.a.Fur_Elise.xml"); // Make sure this file is in the same folder
+
+      // Force all music to be in a single horizontal line
+      osmd.EngravingRules.PageWidth = 5000; // Big enough to fit the whole piece
+      osmd.EngravingRules.RenderSingleHorizontalStaffline = true;
+
+      osmd.render();
+      
+      // Start scrolling after rendering
+      startScrolling();
+    }
+
+    function startScrolling() {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        musicSheet.classList.add('scrolling-music');
+        // Start the note recognition game
+        startNoteRecognitionGame();
+      }
+    }
+
+    function pauseScrolling() {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        musicSheet.style.animationPlayState = 'paused';
+        isPaused = true;
+        pausedTime = Date.now();
+      }
+    }
+
+    function resumeScrolling() {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        musicSheet.style.animationPlayState = 'running';
+        if (isPaused) {
+          totalPausedTime += Date.now() - pausedTime;
+          isPaused = false;
+        }
+      }
+    }
+
+    function setScrollSpeed(speedMultiplier) {
+      const musicSheet = document.querySelector('#osmd-container svg');
+      if (musicSheet) {
+        const baseDuration = 60; // seconds
+        const newDuration = baseDuration / speedMultiplier;
+        musicSheet.style.animationDuration = `${newDuration}s`;
+        tempoMultiplier = speedMultiplier;
+        animationDuration = newDuration;
+      }
+    }
+
+    // Note recognition system functions
+    async function initializeNoteRecognition() {
+      try {
+        pitchDetector = new PitchDetector();
+        await pitchDetector.initialize();
+        pitchDetector.start();
+        console.log('Pitch detector initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize pitch detector:', error);
+        document.getElementById('current-detected-note').textContent = 'Microphone access required';
+      }
+    }
+
+    function extractNotesFromSVG() {
+      const svg = document.querySelector('#osmd-container svg');
+      if (!svg) return [];
+
+      const notes = [];
+      
+      // Try multiple selectors to find note elements in OpenSheetMusicDisplay
+      const possibleSelectors = [
+        'g[class*="vf-notehead"]',
+        'g[class*="notehead"]', 
+        'ellipse[class*="notehead"]',
+        'circle[class*="notehead"]',
+        'path[class*="notehead"]',
+        'g[class*="note"]',
+        'ellipse',
+        'circle'
+      ];
+      
+      let noteElements = [];
+      for (const selector of possibleSelectors) {
+        noteElements = svg.querySelectorAll(selector);
+        if (noteElements.length > 0) {
+          console.log(`Found ${noteElements.length} notes using selector: ${selector}`);
+          break;
+        }
+      }
+      
+      // If still no notes found, try to find any circular/elliptical shapes that might be notes
+      if (noteElements.length === 0) {
+        noteElements = svg.querySelectorAll('ellipse, circle');
+        console.log(`Fallback: Found ${noteElements.length} potential note shapes`);
+      }
+      
+      noteElements.forEach((noteElement, index) => {
+        const rect = noteElement.getBoundingClientRect();
+        const svgRect = svg.getBoundingClientRect();
+        
+        // Get relative position within SVG
+        const x = rect.left - svgRect.left;
+        const y = rect.top - svgRect.top;
+        
+        // Skip if element is too small (likely not a note)
+        if (rect.width < 5 || rect.height < 5) return;
+        
+        // Try to determine note pitch from position
+        const noteName = determineNoteFromPosition(y, svg);
+        
+        notes.push({
+          id: `note-${index}`,
+          element: noteElement,
+          x: x,
+          y: y,
+          noteName: noteName,
+          judged: false,
+          detectionSamples: [],
+          wrongDetectionTime: null
+        });
+      });
+
+      return notes;
+    }
+
+    function determineNoteFromPosition(y, svg) {
+      // Find staff lines to determine note positions more accurately
+      const staffLines = svg.querySelectorAll('line, path');
+      const horizontalLines = [];
+      
+      staffLines.forEach(line => {
+        const y1 = parseFloat(line.getAttribute('y1') || line.getAttribute('y') || 0);
+        const y2 = parseFloat(line.getAttribute('y2') || line.getAttribute('y') || 0);
+        const x1 = parseFloat(line.getAttribute('x1') || line.getAttribute('x') || 0);
+        const x2 = parseFloat(line.getAttribute('x2') || line.getAttribute('x') || 0);
+        
+        // Check if it's a horizontal line (staff line)
+        if (Math.abs(y1 - y2) < 2 && Math.abs(x2 - x1) > 50) {
+          horizontalLines.push(y1);
+        }
+      });
+      
+      // Sort staff lines by Y position
+      horizontalLines.sort((a, b) => a - b);
+      
+      if (horizontalLines.length >= 5) {
+        // Use actual staff lines for note detection
+        const staffLines = horizontalLines.slice(0, 5); // Take first 5 lines
+        const lineSpacing = (staffLines[4] - staffLines[0]) / 4;
+        
+        // Calculate note position relative to staff
+        const relativeToTopLine = y - staffLines[0];
+        const linePosition = relativeToTopLine / (lineSpacing / 2);
+        
+        // Map line positions to notes (treble clef)
+        const noteMap = [
+          'F6', 'E6', 'D6', 'C6', 'B5', 'A5', 'G5', 'F5', 'E5', 'D5', 'C5', 'B4', 'A4', 'G4', 'F4', 'E4', 'D4', 'C4'
+        ];
+        
+        const noteIndex = Math.round(linePosition);
+        if (noteIndex >= 0 && noteIndex < noteMap.length) {
+          return noteMap[noteIndex];
+        }
+      }
+      
+      // Fallback to simple Y-position mapping
+      const svgHeight = svg.getBoundingClientRect().height;
+      const staffCenter = svgHeight / 2;
+      const relativeY = y - staffCenter;
+      
+      if (relativeY < -80) return 'A5';
+      else if (relativeY < -60) return 'G5';
+      else if (relativeY < -40) return 'F5';
+      else if (relativeY < -20) return 'E5';
+      else if (relativeY < 0) return 'D5';
+      else if (relativeY < 20) return 'C5';
+      else if (relativeY < 40) return 'B4';
+      else if (relativeY < 60) return 'A4';
+      else if (relativeY < 80) return 'G4';
+      else return 'F4';
+    }
+
+    function startNoteRecognitionGame() {
+      if (!pitchDetector) {
+        console.warn('Pitch detector not initialized');
+        return;
+      }
+
+      gameNotes = extractNotesFromSVG();
+      console.log(`Extracted ${gameNotes.length} notes from sheet music`);
+      
+      isGameRunning = true;
+      gameStartTime = Date.now();
+      totalPausedTime = 0;
+      
+      // Start pitch detection loop
+      startPitchDetection();
+      
+      // Start game loop for note judgment
+      gameLoop();
+    }
+
+    function startPitchDetection() {
+      if (detectionInterval) {
+        clearInterval(detectionInterval);
+      }
+      
+      detectionInterval = setInterval(() => {
+        if (!isPaused && pitchDetector && isGameRunning) {
+          const pitchData = pitchDetector.detectPitch();
+          
+          if (pitchData && pitchData.confidence > 0.1 && pitchData.volume > 5) {
+            const noteInfo = pitchDetector.frequencyToNote(pitchData.frequency);
+            document.getElementById('current-detected-note').textContent = `${noteInfo.note}${noteInfo.octave}`;
+            document.getElementById('current-detected-frequency').textContent = `${pitchData.frequency.toFixed(1)} Hz`;
+          } else {
+            document.getElementById('current-detected-note').textContent = '-';
+            document.getElementById('current-detected-frequency').textContent = '- Hz';
+          }
+        }
+      }, 100);
+    }
+
+    function gameLoop() {
+      if (!isGameRunning) return;
+      
+      if (!isPaused) {
+        checkNoteJudgments();
+      }
+      
+      requestAnimationFrame(gameLoop);
+    }
+
+    function checkNoteJudgments() {
+      const currentTime = Date.now();
+      const elapsedTime = (currentTime - gameStartTime - totalPausedTime) / 1000;
+      const scrollProgress = elapsedTime / animationDuration;
+      
+      const svg = document.querySelector('#osmd-container svg');
+      if (!svg) return;
+      
+      const svgWidth = svg.getBoundingClientRect().width;
+      const totalScrollDistance = svgWidth * 0.8; // 80% as defined in CSS
+      const currentScrollX = scrollProgress * totalScrollDistance;
+      
+      gameNotes.forEach(note => {
+        if (note.judged) return;
+        
+        // Calculate current note position relative to judgment line
+        const noteCurrentX = note.x - currentScrollX;
+        const distanceToJudgment = Math.abs(noteCurrentX - JUDGMENT_LINE_X);
+        
+        // Check if note is in judgment zone
+        if (distanceToJudgment <= JUDGMENT_TOLERANCE) {
+          judgeNote(note);
+        }
+        // Check if note has passed judgment line (missed)
+        else if (noteCurrentX < JUDGMENT_LINE_X - JUDGMENT_TOLERANCE) {
+          markNoteMissed(note);
+        }
+      });
+    }
+
+    function judgeNote(note) {
+      if (note.judged) return;
+      
+      const pitchData = pitchDetector.detectPitch();
+      const expectedNoteName = note.noteName.replace(/[0-9]/g, ''); // Remove octave number
+      
+      if (pitchData && pitchData.confidence >= MIN_CONFIDENCE && pitchData.volume > 5) {
+        const detectedNote = pitchDetector.frequencyToNote(pitchData.frequency);
+        const detectedNoteName = detectedNote.note;
+        
+        // Add to detection samples
+        note.detectionSamples.push({
+          note: detectedNoteName,
+          confidence: pitchData.confidence,
+          time: Date.now()
+        });
+        
+        // Keep only recent samples
+        const currentTime = Date.now();
+        note.detectionSamples = note.detectionSamples.filter(
+          sample => currentTime - sample.time <= 500
+        );
+        
+        // Check if we have enough consistent samples
+        if (note.detectionSamples.length >= NOTE_DETECTION_SAMPLES) {
+          const correctSamples = note.detectionSamples.filter(s => s.note === expectedNoteName);
+          const avgConfidence = correctSamples.reduce((sum, s) => sum + s.confidence, 0) / correctSamples.length;
+          
+          if (correctSamples.length >= NOTE_DETECTION_SAMPLES && avgConfidence > MIN_CONFIDENCE) {
+            markNoteCorrect(note);
+          } else {
+            // Check for wrong note
+            const wrongSamples = note.detectionSamples.filter(s => s.note !== expectedNoteName);
+            if (wrongSamples.length >= NOTE_DETECTION_SAMPLES) {
+              const dominantWrongNote = getMostFrequentNote(wrongSamples);
+              markNoteWrong(note, dominantWrongNote);
+            }
+          }
+        }
+      }
+    }
+
+    function getMostFrequentNote(samples) {
+      const noteCounts = {};
+      samples.forEach(sample => {
+        noteCounts[sample.note] = (noteCounts[sample.note] || 0) + 1;
+      });
+      
+      return Object.keys(noteCounts).reduce((a, b) => 
+        noteCounts[a] > noteCounts[b] ? a : b
+      );
+    }
+
+    function markNoteCorrect(note) {
+      note.judged = true;
+      correctCount++;
+      
+      // Change note color to green
+      const noteheads = note.element.querySelectorAll('path, ellipse, circle');
+      noteheads.forEach(notehead => {
+        notehead.style.fill = 'green';
+        notehead.style.stroke = 'green';
+      });
+      
+      updateScoreDisplay();
+    }
+
+    function markNoteWrong(note, detectedNoteName) {
+      note.judged = true;
+      wrongCount++;
+      
+      // Change note color to red
+      const noteheads = note.element.querySelectorAll('path, ellipse, circle');
+      noteheads.forEach(notehead => {
+        notehead.style.fill = 'red';
+        notehead.style.stroke = 'red';
+      });
+      
+      updateScoreDisplay();
+    }
+
+    function markNoteMissed(note) {
+      if (note.judged) return;
+      
+      note.judged = true;
+      missedCount++;
+      
+      // Keep original color but count as missed
+      updateScoreDisplay();
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('correct-count').textContent = correctCount;
+      document.getElementById('missed-count').textContent = missedCount;
+      document.getElementById('wrong-count').textContent = wrongCount;
+    }
+
+    // Event listeners for controls
+    document.getElementById('pause-btn').addEventListener('click', () => {
+      if (isPaused) {
+        resumeScrolling();
+        document.getElementById('pause-btn').textContent = 'Pause';
+      } else {
+        pauseScrolling();
+        document.getElementById('pause-btn').textContent = 'Resume';
+      }
+    });
+
+    document.getElementById('tempo-slider').addEventListener('input', (e) => {
+      const newTempo = parseFloat(e.target.value);
+      document.getElementById('tempo-value').textContent = `${newTempo.toFixed(1)}x`;
+      setScrollSpeed(newTempo);
+    });
+
+    renderMusicXML();
+    
+    // Initialize note recognition system
+    initializeNoteRecognition();
+  </script>
 </body>
 </html>
