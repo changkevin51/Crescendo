@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crescendo - Select Mode</title>
+    <link rel="icon" href="Crescendo-removebg-preview.png" type="image/x-icon">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f0f9f0 0%, #ffffff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .music-notes {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .note {
+            position: absolute;
+            font-size: 2rem;
+            color: rgba(144, 238, 144, 0.3);
+            animation: float 8s infinite linear;
+            opacity: 0;
+        }
+
+        .note:nth-child(1) { left: 10%; animation-delay: 0s; font-size: 1.5rem; }
+        .note:nth-child(2) { left: 20%; animation-delay: 1s; font-size: 2.5rem; }
+        .note:nth-child(3) { left: 30%; animation-delay: 2s; font-size: 1.8rem; }
+        .note:nth-child(4) { left: 40%; animation-delay: 3s; font-size: 2rem; }
+        .note:nth-child(5) { left: 50%; animation-delay: 4s; font-size: 1.6rem; }
+        .note:nth-child(6) { left: 60%; animation-delay: 5s; font-size: 2.2rem; }
+        .note:nth-child(7) { left: 70%; animation-delay: 6s; font-size: 1.9rem; }
+        .note:nth-child(8) { left: 80%; animation-delay: 7s; font-size: 2.3rem; }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(144, 238, 144, 0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+            border: 1px solid #e8f5e8;
+            position: relative;
+            z-index: 10;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            color: #2d5a2d;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #6b8e6b;
+            font-size: 16px;
+        }
+
+        .mode-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .mode-card {
+            background: linear-gradient(135deg, #f8fdf8 0%, #ffffff 100%);
+            border: 2px solid #e8f5e8;
+            border-radius: 12px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mode-card:hover {
+            border-color: #90ee90;
+            box-shadow: 0 8px 25px rgba(144, 238, 144, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .mode-card.selected {
+            border-color: #90ee90;
+            background: linear-gradient(135deg, #f0fff0 0%, #f8fdf8 100%);
+            box-shadow: 0 8px 25px rgba(144, 238, 144, 0.2);
+        }
+
+        .mode-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            margin-bottom: 16px;
+        }
+
+        .random-mode .mode-icon {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+        }
+
+        .upload-mode .mode-icon {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+        }
+
+        .ai-mode .mode-icon {
+            background: linear-gradient(135deg, #a8e6cf, #7fcdcd);
+        }
+
+        .mode-title {
+            color: #2d5a2d;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .mode-description {
+            color: #6b8e6b;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .tooltip {
+            position: absolute;
+            top: -10px;
+            right: 16px;
+            width: 20px;
+            height: 20px;
+            background: #90ee90;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: help;
+        }
+
+        .tooltip-content {
+            position: absolute;
+            bottom: 25px;
+            right: 0;
+            background: #2d5a2d;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            line-height: 1.4;
+            width: 250px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .tooltip-content::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 10px;
+            border: 5px solid transparent;
+            border-top-color: #2d5a2d;
+        }
+
+        .tooltip:hover .tooltip-content {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #90ee90 0%, #7dd87d 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #7dd87d 0%, #6bc96b 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(144, 238, 144, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background: #d3d3d3;
+            color: #999;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #d3d3d3, #c0c0c0);
+            color: #666;
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #c0c0c0, #b0b0b0);
+            transform: translateY(-1px);
+        }
+
+        .ai-input-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .ai-input-modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-header h2 {
+            color: #2d5a2d;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .modal-header p {
+            color: #6b8e6b;
+            font-size: 14px;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        .input-label {
+            display: block;
+            color: #2d5a2d;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e8f5e8;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s ease;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #90ee90;
+            box-shadow: 0 0 0 3px rgba(144, 238, 144, 0.1);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .tooltip-content {
+                width: 200px;
+                right: -90px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="music-notes">
+        <div class="note">♪</div>
+        <div class="note">♫</div>
+        <div class="note">♪</div>
+        <div class="note">♬</div>
+        <div class="note">♫</div>
+        <div class="note">♪</div>
+        <div class="note">♬</div>
+        <div class="note">♫</div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>Single Player Mode</h1>
+            <p>Choose how you'd like to practice</p>
+        </div>
+
+        <div class="mode-options">
+            <div class="mode-card random-mode" onclick="selectMode('random')">
+                <div class="tooltip">
+                    ?
+                    <div class="tooltip-content">
+                        Practice with randomly generated sheet music. Perfect for sight-reading and general practice. No setup required - just start playing!
+                    </div>
+                </div>
+                <div class="mode-icon">🎲</div>
+                <div class="mode-title">Random Mode</div>
+                <div class="mode-description">Practice with randomly generated sheet music for sight-reading</div>
+            </div>
+
+            <div class="mode-card upload-mode" onclick="selectMode('upload')">
+                <div class="tooltip">
+                    ?
+                    <div class="tooltip-content">
+                        Upload your own MusicXML files to practice specific pieces. Supports standard XML format from music notation software like MuseScore, Finale, or Sibelius.
+                    </div>
+                </div>
+                <div class="mode-icon">📁</div>
+                <div class="mode-title">Upload Music</div>
+                <div class="mode-description">Upload your own XML music files to practice specific pieces</div>
+            </div>
+
+            <div class="mode-card ai-mode" onclick="selectMode('ai')">
+                <div class="tooltip">
+                    ?
+                    <div class="tooltip-content">
+                        Let AI generate custom sheet music based on your specific practice needs. Tell the AI what you want to work on (timing, specific notes, rhythms, etc.) and it will create targeted exercises.
+                    </div>
+                </div>
+                <div class="mode-icon">🤖</div>
+                <div class="mode-title">AI Generated</div>
+                <div class="mode-description">Generate custom sheet music with AI based on your practice goals</div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-secondary" onclick="goBack()">Back</button>
+            <button class="btn btn-primary" id="startBtn" onclick="startSelectedMode()" disabled>Start Practice</button>
+        </div>
+    </div>
+
+    <!-- AI Input Modal -->
+    <div class="ai-input-modal" id="aiModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>AI Music Generation</h2>
+                <p>Tell us what you'd like to practice and we'll generate custom sheet music for you</p>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label" for="practiceGoals">What would you like to work on?</label>
+                <textarea 
+                    class="input-field" 
+                    id="practiceGoals" 
+                    placeholder="Example: I want to work on timing my dotted quarter notes, or I need practice with sharps and flats in the key of D major..."
+                    rows="4"
+                ></textarea>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeAiModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="generateAiMusic()">Generate Music</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedMode = null;
+
+        function selectMode(mode) {
+            // Remove previous selection
+            document.querySelectorAll('.mode-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // Add selection to clicked card
+            document.querySelector(`.${mode}-mode`).classList.add('selected');
+            
+            selectedMode = mode;
+            document.getElementById('startBtn').disabled = false;
+        }
+
+        function startSelectedMode() {
+            if (!selectedMode) return;
+
+            switch (selectedMode) {
+                case 'random':
+                    // Use existing random functionality - go to main.html
+                    window.location.href = 'main.html';
+                    break;
+                    
+                case 'upload':
+                    // Go to single.html which has upload functionality
+                    window.location.href = 'single.html';
+                    break;
+                    
+                case 'ai':
+                    // Show AI input modal
+                    document.getElementById('aiModal').classList.add('show');
+                    break;
+            }
+        }
+
+        function goBack() {
+            window.location.href = 'home.html';
+        }
+
+        function closeAiModal() {
+            document.getElementById('aiModal').classList.remove('show');
+            document.getElementById('practiceGoals').value = '';
+        }
+
+        async function generateAiMusic() {
+            const practiceGoals = document.getElementById('practiceGoals').value.trim();
+            
+            if (!practiceGoals) {
+                alert('Please describe what you\'d like to practice');
+                return;
+            }
+
+            try {
+                // Show loading state
+                const generateBtn = document.querySelector('.modal-buttons .btn-primary');
+                const originalText = generateBtn.textContent;
+                generateBtn.textContent = 'Generating...';
+                generateBtn.disabled = true;
+
+                // Generate music using client-side AI (like melody generator)
+                const musicXML = await generateMusicWithAI(practiceGoals);
+                
+                const result = {
+                    success: true,
+                    musicXML: musicXML,
+                    practiceGoals: practiceGoals,
+                    generatedAt: new Date().toISOString()
+                };
+                
+                // Store the generated music data and redirect to player
+                sessionStorage.setItem('generatedMusic', JSON.stringify(result));
+                window.location.href = 'single.html?mode=ai';
+
+            } catch (error) {
+                console.error('Error generating music:', error);
+                alert('Failed to generate music. Please try again.');
+                
+                // Reset button state
+                const generateBtn = document.querySelector('.modal-buttons .btn-primary');
+                generateBtn.textContent = 'Generate Music';
+                generateBtn.disabled = false;
+            }
+        }
+
+        // Client-side AI music generation (similar to melody-generator.js)
+        async function generateMusicWithAI(practiceGoals) {
+            const apiKey = 'TzLCrcGf8zp2ADDh4syEH6rVQyWsL6rJvri5Nm7b';
+            const apiUrl = 'https://api.cohere.com/v1/chat';
+            
+            const prompt = `You are a music composition AI that generates MusicXML sheet music based on specific practice requirements.
+
+User's Practice Goals: "${practiceGoals}"
+
+Generate a simple MusicXML file (4-8 measures) that specifically addresses these practice goals. The music should be:
+- Appropriate for the requested skill level
+- Focused on the specific elements mentioned (timing, notes, rhythms, etc.)
+- Playable and educational
+- In 4/4 time signature
+- In treble clef
+- Key of C major (unless specifically requested otherwise)
+
+Return ONLY the complete MusicXML code, starting with <?xml version="1.0" encoding="UTF-8"?> and ending with </score-partwise>. Do not include any explanatory text before or after the XML.`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'command-r-plus',
+                        message: prompt,
+                        temperature: 0.7,
+                        max_tokens: 3000
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Cohere API error: ${response.status}`);
+                }
+
+                const result = await response.json();
+                let musicXML = result.text || result.message?.content;
+                
+                if (!musicXML) {
+                    throw new Error('No music generated by AI');
+                }
+
+                // Clean up the response to extract just the XML
+                musicXML = musicXML.trim();
+                
+                // If the AI included extra text, try to extract just the XML part
+                const xmlStart = musicXML.indexOf('<?xml');
+                const xmlEnd = musicXML.lastIndexOf('</score-partwise>') + '</score-partwise>'.length;
+                
+                if (xmlStart !== -1 && xmlEnd !== -1) {
+                    musicXML = musicXML.substring(xmlStart, xmlEnd);
+                }
+                
+                return musicXML;
+                
+            } catch (error) {
+                console.error('AI generation failed, using fallback:', error);
+                return generateFallbackMusicXML(practiceGoals);
+            }
+        }
+
+        // Fallback music generation
+        function generateFallbackMusicXML(practiceGoals) {
+            const goals = practiceGoals.toLowerCase();
+            
+            if (goals.includes('half') || goals.includes('timing')) {
+                return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <work>
+    <work-title>Half Note Practice</work-title>
+  </work>
+  <identification>
+    <creator type="composer">Crescendo AI</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Piano</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key>
+          <fifths>0</fifths>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+      <note>
+        <pitch>
+          <step>D</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+    </measure>
+    <measure number="2">
+      <note>
+        <pitch>
+          <step>E</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+      <note>
+        <pitch>
+          <step>F</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+    </measure>
+    <measure number="3">
+      <note>
+        <pitch>
+          <step>G</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>8</duration>
+        <type>whole</type>
+      </note>
+    </measure>
+    <measure number="4">
+      <note>
+        <pitch>
+          <step>F</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+      <note>
+        <pitch>
+          <step>E</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>`;
+            } else {
+                // General quarter note practice
+                return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 3.1 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="3.1">
+  <work>
+    <work-title>Practice Exercise</work-title>
+  </work>
+  <identification>
+    <creator type="composer">Crescendo AI</creator>
+  </identification>
+  <part-list>
+    <score-part id="P1">
+      <part-name>Piano</part-name>
+    </score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>2</divisions>
+        <key>
+          <fifths>0</fifths>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>D</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>E</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>F</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+    <measure number="2">
+      <note>
+        <pitch>
+          <step>G</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>A</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>B</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>6</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+    <measure number="3">
+      <note>
+        <pitch>
+          <step>B</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>A</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>G</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>F</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+    <measure number="4">
+      <note>
+        <pitch>
+          <step>E</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>D</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>2</duration>
+        <type>quarter</type>
+      </note>
+      <note>
+        <pitch>
+          <step>C</step>
+          <octave>5</octave>
+        </pitch>
+        <duration>4</duration>
+        <type>half</type>
+      </note>
+    </measure>
+  </part>
+</score-partwise>`;
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('aiModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAiModal();
+            }
+        });
+
+        // Handle escape key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAiModal();
+            }
+        });
+    </script>
+</body>
+</html>

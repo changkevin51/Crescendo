@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="mainstyles.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay/build/opensheetmusicdisplay.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
   <main>
@@ -123,8 +124,8 @@
         const judgmentLine = container.querySelector('.judgment-line');
         container.innerHTML = `
           <div style="text-align: center; padding: 40px;">
-            <div style="font-size: 18px; margin-bottom: 10px;">🎵 Generating Random Melody...</div>
-            <div style="font-size: 14px; color: #666;">Please wait while Cohere creates a new melody for you!</div>
+            <div style="font-size: 18px; margin-bottom: 10px;">Generating Random Melody...</div>
+            <div style="font-size: 14px; color: #666;">Please wait while we create a new melody for you!</div>
           </div>
         `;
         if (judgmentLine) {
@@ -135,7 +136,7 @@
         const melodyResult = await window.melodyGenerator.generateRandomMelody();
         
         if (melodyResult.success) {
-          console.log('🎵 Successfully generated melody:', melodyResult.melody);
+          console.log('Successfully generated melody:', melodyResult.melody);
           
           // Save the generated XML and create a blob URL
           const xmlResult = await window.melodyGenerator.saveMelodyAsXML(melodyResult.musicXML);
@@ -147,7 +148,7 @@
             throw new Error('Failed to create melody XML');
           }
         } else {
-          console.warn('🎵 Using fallback melody due to generation failure');
+          console.warn('Using fallback melody due to generation failure');
           // Use fallback melody
           const fallbackXML = window.melodyGenerator.convertToMusicXML(melodyResult.fallbackMelody);
           const xmlResult = await window.melodyGenerator.saveMelodyAsXML(fallbackXML);
@@ -686,10 +687,81 @@
       setScrollSpeed(newTempo);
     });
 
+    // Check if this is a multiplayer session
+    function checkMultiplayerMode() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isMultiplayer = urlParams.get('mode') === 'multiplayer';
+      
+      if (isMultiplayer) {
+        const multiplayerData = localStorage.getItem('multiplayerSession');
+        if (multiplayerData) {
+          const sessionData = JSON.parse(multiplayerData);
+          console.log('🎮 Multiplayer mode detected:', sessionData);
+          initializeMultiplayerGame(sessionData);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function initializeMultiplayerGame(sessionData) {
+      console.log('🎵 Initializing multiplayer game with synchronized music');
+      
+      // Connect to the multiplayer server
+      const socket = io('http://10.37.114.110:3001');
+      window.multiplayerSocket = socket;
+      
+      // Set up multiplayer UI elements
+      document.querySelector('h1').textContent = `Crescendo - Multiplayer (${sessionData.username})`;
+      
+      // Load the synchronized music sequence from the host
+      if (sessionData.musicSequence && sessionData.musicSequence.gameNotes) {
+        loadMultiplayerMusicSheet(sessionData.musicSequence);
+      }
+      
+      // Set up real-time multiplayer features
+      setupMultiplayerFeatures(sessionData);
+    }
+
+    function loadMultiplayerMusicSheet(musicSequence) {
+      console.log('🎼 Loading multiplayer music sheet');
+      
+      // Clear existing content
+      const musicContainer = document.getElementById('music-container');
+      if (musicContainer) {
+        musicContainer.innerHTML = '';
+      }
+      
+      // Create the game using the existing engine with the synchronized music
+      if (window.gameEngine) {
+        window.gameEngine.loadCustomMusicSequence(musicSequence);
+        window.gameEngine.startGame();
+      }
+    }
+
+    function setupMultiplayerFeatures(sessionData) {
+      // Set up real-time updates between players
+      if (window.multiplayerSocket) {
+        window.multiplayerSocket.on('player-note-update', (data) => {
+          console.log(`Player ${data.userId} played: ${data.note}`);
+        });
+        
+        window.multiplayerSocket.on('player-progress-update', (data) => {
+          console.log(`Player ${data.userId} progress: ${data.progress}%`);
+        });
+      }
+    }
+
     // Initialize in the correct order
-    initializeNoteRecognition().then(() => {
-      renderMusicXML();
-    });
+    if (!checkMultiplayerMode()) {
+      // Single player mode
+      initializeNoteRecognition().then(() => {
+        renderMusicXML();
+      });
+    } else {
+      // Multiplayer mode - initialize note recognition but don't render XML
+      initializeNoteRecognition();
+    }
   </script>
 </body>
 </html>

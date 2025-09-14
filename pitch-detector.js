@@ -30,14 +30,36 @@ class PitchDetector {
 
     async initialize() {
         try {
-            // Request microphone access
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false
-                } 
-            });
+            // Check if we're in a secure context (required for getUserMedia)
+            if (!window.isSecureContext && location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                throw new Error('getUserMedia requires HTTPS or localhost');
+            }
+
+            let stream;
+            
+            // Try modern API first
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: false,
+                            noiseSuppression: false,
+                            autoGainControl: false
+                        } 
+                    });
+                } catch (modernError) {
+                    console.log('Modern getUserMedia failed, trying fallbacks:', modernError);
+                    throw modernError;
+                }
+            } else if (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia) {
+                // Fallback for older browsers
+                const getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+                stream = await new Promise((resolve, reject) => {
+                    getUserMedia.call(navigator, { audio: true }, resolve, reject);
+                });
+            } else {
+                throw new Error('No getUserMedia support detected');
+            }
             
             // Create audio context
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();

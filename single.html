@@ -617,9 +617,50 @@
       setScrollSpeed(newTempo);
     });
 
+    // Check if this is AI mode and load generated music
+    function initializeGame() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const mode = urlParams.get('mode');
+      
+      if (mode === 'ai') {
+        // Load AI-generated music from sessionStorage
+        const generatedMusic = sessionStorage.getItem('generatedMusic');
+        if (generatedMusic) {
+          try {
+            const musicData = JSON.parse(generatedMusic);
+            console.log('Loading AI-generated music:', musicData);
+            
+            // Create a blob URL from the XML data
+            const blob = new Blob([musicData.musicXML], { type: 'application/xml' });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // Update page title to show it's AI generated
+            document.title = 'Crescendo - AI Generated Practice';
+            document.querySelector('h1').textContent = 'Crescendo - AI Generated Practice';
+            
+            renderMusicXML(blobUrl);
+            
+            // Clean up
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            
+          } catch (error) {
+            console.error('Failed to load AI-generated music:', error);
+            alert('Failed to load AI-generated music. Please try again.');
+            window.location.href = 'mode-selection.html';
+          }
+        } else {
+          alert('No AI-generated music found. Please generate music first.');
+          window.location.href = 'mode-selection.html';
+        }
+      } else {
+        // Default behavior - load default music or wait for file upload
+        renderMusicXML();
+      }
+    }
+
     // Initialize in the correct order
     initializeNoteRecognition().then(() => {
-      renderMusicXML();
+      initializeGame();
     });
 
     document.getElementById('music-file-upload').addEventListener('change', (e) => {

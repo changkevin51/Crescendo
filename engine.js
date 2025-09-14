@@ -42,6 +42,53 @@ let totalPausedTime = 0;
 let animationId = null;
 let detectionInterval = null;
 let noteStatistics = null;
+
+// Game engine object for multiplayer support
+window.gameEngine = {
+  loadCustomMusicSequence: function(musicSequence) {
+    console.log('🎼 Loading custom music sequence:', musicSequence);
+    gameNotes = musicSequence.gameNotes || [];
+    totalScrollTime = musicSequence.totalScrollTime || 40;
+    
+    // Clear existing game elements
+    if (noteGroup) {
+      noteGroup.innerHTML = '';
+    }
+    
+    // Create notes from the custom sequence
+    gameNotes.forEach((note, index) => {
+      if (noteGroup) {
+        const noteElement = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+        noteElement.setAttribute("cx", note.x);
+        noteElement.setAttribute("cy", note.y);
+        noteElement.setAttribute("rx", "8");
+        noteElement.setAttribute("ry", "6");
+        noteElement.setAttribute("fill", "#333");
+        noteElement.setAttribute("data-note-id", note.id);
+        noteElement.setAttribute("data-note-name", note.noteName);
+        noteGroup.appendChild(noteElement);
+      }
+    });
+    
+    console.log(`✅ Loaded ${gameNotes.length} notes for multiplayer`);
+  },
+  
+  startGame: function() {
+    console.log('🎮 Starting multiplayer game');
+    startGame();
+  }
+};
+
+// Initialize statistics system
+function initializeStatistics() {
+  if (typeof NoteStatistics !== 'undefined') {
+    window.noteStatistics = new NoteStatistics();
+    noteStatistics = window.noteStatistics;
+    console.log('📊 Statistics system initialized');
+  } else {
+    console.warn('📊 NoteStatistics class not found');
+  }
+}
 let currentNoteIndex = 0;
 let maxStreak = 0;
 let currentStreak = 0;
@@ -248,7 +295,7 @@ async function initializeGame() {
     pitchDetector.start();
     
     // Initialize statistics tracking
-    noteStatistics = new NoteStatistics();
+    initializeStatistics();
     
     // Start the game
     startGame();
@@ -1021,8 +1068,8 @@ async function endGameAndAnalyze() {
       <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
         <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
           <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
-          <h2 style="margin-bottom: 15px;">🤖 Analyzing Your Performance...</h2>
-          <p>Our AI council is reviewing your session data and preparing detailed feedback.</p>
+          <h2 style="margin-bottom: 15px;">Analyzing Your Performance...</h2>
+          <p>The music council is reviewing your session data and preparing detailed feedback.</p>
         </div>
       </div>
       <style>

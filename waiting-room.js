@@ -1,6 +1,6 @@
 class WaitingRoomApp {
     constructor() {
-        this.socket = io();
+        this.socket = io('http://10.37.114.110:3001');
         this.username = '';
         this.currentRoom = null;
         this.isHost = false;
@@ -393,14 +393,31 @@ class WaitingRoomApp {
     }
 
     startSession() {
-        this.socket.emit('start-session');
+        console.log('🎵 Start Session clicked!');
+        console.log('Current room:', this.currentRoom);
+        console.log('Is host:', this.isHost);
+        
+        if (!this.currentRoom || !this.isHost) {
+            console.log('❌ Cannot start session - not host or no room');
+            this.showStatus('Only the host can start the music session', 'error');
+            return;
+        }
+        
+        console.log('✅ Emitting start-music-session event with roomId:', this.currentRoom.id);
+        this.socket.emit('start-music-session', {
+            roomId: this.currentRoom.id
+        });
     }
 
     startMusicGame() {
-        if (this.currentRoom) {
-            window.location.href = `main.html?room=${this.currentRoom.id}`;
+        if (this.currentRoom && this.isHost) {
+            // Host starts the music session for all players
+            this.socket.emit('start-music-session', {
+                roomId: this.currentRoom.id
+            });
         } else {
-            window.location.href = 'main.html';
+            // Non-host players shouldn't be able to start sessions
+            this.showStatus('Only the host can start the music session', 'error');
         }
     }
 
@@ -428,10 +445,10 @@ class WaitingRoomApp {
                 clearInterval(countdownInterval);
                 countdownElement.textContent = 'GO!';
                 
-                // Redirect all participants to the game with synchronized data
+                // Redirect to main.html with multiplayer data
                 setTimeout(() => {
-                    const gameUrl = `main.html?room=${data.roomId}&sync=${data.syncStartTime}&multiplayer=true`;
-                    window.location.href = gameUrl;
+                    document.body.removeChild(overlay);
+                    this.redirectToMultiplayerGame(data);
                 }, 500);
             }
         }, 1000);
@@ -480,6 +497,503 @@ class WaitingRoomApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    hideAllScreens() {
+        // Hide all screens
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+    }
+
+    redirectToMultiplayerGame(sessionData) {
+        // Store multiplayer session data in localStorage for main.html to use
+        const multiplayerData = {
+            roomId: this.currentRoom.id,
+            username: this.username,
+            isHost: this.isHost,
+            musicSequence: sessionData.musicSequence,
+            syncStartTime: sessionData.syncStartTime,
+            isMultiplayer: true,
+            participants: Array.from(this.currentRoom.participants || [])
+        };
+        
+        localStorage.setItem('multiplayerSession', JSON.stringify(multiplayerData));
+        
+        // Redirect to main.html
+        window.location.href = '/main.html?mode=multiplayer';
+    }
+
+    showMultiplayerGameScreen(sessionData) {
+        // Create multiplayer game screen
+        const gameScreen = document.createElement('div');
+        gameScreen.id = 'multiplayerGameScreen';
+        gameScreen.className = 'screen active';
+        gameScreen.innerHTML = `
+            <div class="multiplayer-game">
+                <div class="game-header">
+                    <div class="room-info">
+                        <h2>${this.currentRoom.roomName}</h2>
+                        <span class="room-status">🎵 Playing</span>
+                    </div>
+                    <div class="game-controls">
+                        <button id="pauseGameBtn" class="btn btn-secondary">Pause</button>
+                        <button id="endGameBtn" class="btn btn-danger">End Game</button>
+                    </div>
+                </div>
+
+                <div class="players-panel">
+                    <div class="players-grid" id="playersGrid">
+                        <!-- Player progress cards will be populated here -->
+                    </div>
+                </div>
+
+                <div class="game-area">
+                    <div class="detection-info">
+                        <div class="detected-note-display">
+                            <span class="label">Current Note:</span>
+                            <span id="currentDetectedNote">-</span>
+                        </div>
+                        <div class="detected-frequency-display">
+                            <span class="label">Frequency:</span>
+                            <span id="currentDetectedFrequency">- Hz</span>
+                        </div>
+                        <div class="accuracy-display">
+                            <span class="label">Your Accuracy:</span>
+                            <span id="liveAccuracy">0.0%</span>
+                        </div>
+                    </div>
+
+                    <div id="musicSheetContainer" class="music-sheet-container">
+                        <div class="judgment-line"></div>
+                        <!-- Music sheet will be rendered here -->
+                    </div>
+
+                    <div class="progress-bar-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="gameProgressFill"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="progressTime">0:00</span> / <span id="totalTime">0:00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.querySelector('.container').appendChild(gameScreen);
+        this.setupMultiplayerGameEventListeners();
+    }
+
+    setupMultiplayerGameEventListeners() {
+        const pauseBtn = document.getElementById('pauseGameBtn');
+        const endBtn = document.getElementById('endGameBtn');
+
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', () => {
+                if (this.isHost) {
+                    this.socket.emit('pause-game', { roomId: this.currentRoom.id });
+                } else {
+                    this.showStatus('Only the host can pause the game', 'error');
+                }
+            });
+        }
+
+        if (endBtn) {
+            endBtn.addEventListener('click', () => {
+                if (this.isHost) {
+                    this.socket.emit('end-game', { roomId: this.currentRoom.id });
+                } else {
+                    this.showStatus('Only the host can end the game', 'error');
+                }
+            });
+        }
+    }
+
+    initializeMultiplayerGame(sessionData) {
+        console.log('🎮 Initializing multiplayer game with data:', sessionData);
+        
+        // Initialize pitch detector
+        this.initializePitchDetector();
+        
+        // Initialize statistics tracking
+        this.initializeStatistics();
+        
+        // Load and display the synchronized music sheet
+        this.loadSynchronizedMusicSheet(sessionData.musicSequence);
+        
+        // Initialize player tracking
+        this.initializePlayerTracking();
+        
+        // Start the synchronized game
+        this.startSynchronizedGameplay(sessionData);
+        
+        console.log('✅ Multiplayer game initialization complete');
+    }
+
+    async initializePitchDetector() {
+        try {
+            if (!window.pitchDetector) {
+                window.pitchDetector = new PitchDetector();
+                await window.pitchDetector.initialize();
+                window.pitchDetector.start();
+            }
+            console.log('🎤 Pitch detector initialized for multiplayer');
+        } catch (error) {
+            console.error('Failed to initialize pitch detector:', error);
+            // Don't block the game if pitch detector fails - continue without it
+            console.log('⚠️ Continuing multiplayer game without pitch detection');
+            this.showStatus('Microphone access denied - playing in visual mode only', 'warning');
+        }
+    }
+
+    initializeStatistics() {
+        if (typeof NoteStatistics !== 'undefined') {
+            window.noteStatistics = new NoteStatistics();
+            window.noteStatistics.startSession('multiplayer', 5000);
+            console.log('📊 Statistics initialized for multiplayer');
+        }
+    }
+
+    loadSynchronizedMusicSheet(musicSequence) {
+        console.log('🎼 Loading music sheet with sequence:', musicSequence);
+        const container = document.getElementById('musicSheetContainer');
+        if (!container) {
+            console.error('❌ Music sheet container not found!');
+            return;
+        }
+
+        console.log('✅ Music sheet container found');
+
+        // Clear existing content
+        container.innerHTML = '';
+
+        // Create SVG for the music sheet
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", "100%");
+        svg.setAttribute("height", "200");
+        svg.setAttribute("viewBox", "0 0 1200 200");
+        svg.id = "multiplayerMusicSheet";
+        svg.style.border = "1px solid #ccc"; // Add border for debugging
+
+        console.log('🎵 Created SVG element');
+
+        // Draw staff lines
+        for (let i = 0; i < 5; i++) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", "0");
+            line.setAttribute("y1", 50 + i * 20);
+            line.setAttribute("x2", "1200");
+            line.setAttribute("y2", 50 + i * 20);
+            line.setAttribute("stroke", "#333");
+            line.setAttribute("stroke-width", "1");
+            svg.appendChild(line);
+        }
+
+        console.log('📏 Added staff lines');
+
+        // Draw notes from the music sequence
+        if (musicSequence && musicSequence.gameNotes) {
+            console.log(`🎵 Drawing ${musicSequence.gameNotes.length} notes`);
+            musicSequence.gameNotes.forEach((note, index) => {
+                const noteElement = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+                noteElement.setAttribute("cx", note.x);
+                noteElement.setAttribute("cy", note.y);
+                noteElement.setAttribute("rx", "8");
+                noteElement.setAttribute("ry", "6");
+                noteElement.setAttribute("fill", "#333");
+                noteElement.setAttribute("data-note-id", note.id);
+                noteElement.setAttribute("data-note-name", note.noteName);
+                svg.appendChild(noteElement);
+
+                // Add note label
+                const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                label.setAttribute("x", note.x);
+                label.setAttribute("y", note.y - 15);
+                label.setAttribute("text-anchor", "middle");
+                label.setAttribute("font-size", "12");
+                label.setAttribute("fill", "#666");
+                label.textContent = note.noteName;
+                svg.appendChild(label);
+            });
+        } else {
+            console.error('❌ No music sequence or gameNotes found!', musicSequence);
+            // Add fallback content
+            const fallbackText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            fallbackText.setAttribute("x", "600");
+            fallbackText.setAttribute("y", "100");
+            fallbackText.setAttribute("text-anchor", "middle");
+            fallbackText.setAttribute("font-size", "20");
+            fallbackText.setAttribute("fill", "#666");
+            fallbackText.textContent = "Loading music...";
+            svg.appendChild(fallbackText);
+        }
+
+        container.appendChild(svg);
+        this.gameNotes = musicSequence?.gameNotes || [];
+        
+        console.log('✅ Music sheet loaded successfully');
+    }
+
+    initializePlayerTracking() {
+        const playersGrid = document.getElementById('playersGrid');
+        if (!playersGrid || !this.currentRoom) return;
+
+        // Create player cards for all participants
+        Array.from(this.currentRoom.participants || []).forEach(participant => {
+            const playerCard = document.createElement('div');
+            playerCard.className = 'player-card';
+            playerCard.id = `player-${participant.userId}`;
+            playerCard.innerHTML = `
+                <div class="player-info">
+                    <div class="player-name">${participant.userId}</div>
+                    <div class="player-instrument">${this.currentRoom.instrument}</div>
+                </div>
+                <div class="player-stats">
+                    <div class="stat">
+                        <span class="stat-label">Accuracy:</span>
+                        <span class="stat-value" id="accuracy-${participant.userId}">0%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Score:</span>
+                        <span class="stat-value" id="score-${participant.userId}">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Progress:</span>
+                        <div class="mini-progress-bar">
+                            <div class="mini-progress-fill" id="progress-${participant.userId}"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            playersGrid.appendChild(playerCard);
+        });
+    }
+
+    startSynchronizedGameplay(sessionData) {
+        console.log('🎮 Starting synchronized gameplay with data:', sessionData);
+        this.gameStartTime = sessionData.syncStartTime;
+        this.musicSequence = sessionData.musicSequence;
+        this.isGameActive = true;
+        
+        console.log('🎵 Game marked as active, starting components...');
+        
+        // Start the scrolling animation
+        this.startMusicSheetAnimation();
+        
+        // Start pitch detection and note tracking
+        this.startNoteTracking();
+        
+        // Start progress tracking
+        this.startProgressTracking();
+        
+        // Listen for real-time updates from other players
+        this.setupRealtimePlayerUpdates();
+        
+        console.log('✅ All game components started');
+    }
+
+    startMusicSheetAnimation() {
+        console.log('🎬 Starting music sheet animation');
+        const svg = document.getElementById('multiplayerMusicSheet');
+        if (!svg) {
+            console.error('❌ SVG element not found for animation');
+            return;
+        }
+
+        const totalDuration = this.musicSequence.totalScrollTime || 60;
+        console.log(`⏱️ Setting animation duration: ${totalDuration}s`);
+        svg.style.animation = `scrollLeft ${totalDuration}s linear`;
+        console.log('✅ Animation started');
+    }
+
+    startNoteTracking() {
+        this.noteTrackingInterval = setInterval(() => {
+            if (!this.isGameActive) return;
+
+            // Only track pitch if detector is available
+            if (window.pitchDetector) {
+                const pitchData = window.pitchDetector.detectPitch();
+                if (pitchData && pitchData.confidence > 0.1 && pitchData.volume > 5) {
+                    const noteInfo = window.pitchDetector.frequencyToNote(pitchData.frequency);
+                    
+                    // Update local display
+                    document.getElementById('currentDetectedNote').textContent = `${noteInfo.note}${noteInfo.octave}`;
+                    document.getElementById('currentDetectedFrequency').textContent = `${pitchData.frequency.toFixed(1)} Hz`;
+                    
+                    // Send real-time data to other players
+                    this.socket.emit('player-note-update', {
+                        roomId: this.currentRoom.id,
+                        userId: this.username,
+                        note: `${noteInfo.note}${noteInfo.octave}`,
+                        frequency: pitchData.frequency,
+                        confidence: pitchData.confidence,
+                        timestamp: Date.now()
+                    });
+
+                    // Record for statistics
+                    if (window.noteStatistics) {
+                        window.noteStatistics.recordDetectionSample(
+                            pitchData.frequency,
+                            noteInfo.note,
+                            noteInfo.octave,
+                            pitchData.confidence,
+                            pitchData.volume,
+                            Date.now()
+                        );
+                    }
+                }
+            } else {
+                // Visual mode - show placeholder text
+                document.getElementById('currentDetectedNote').textContent = 'Visual Mode';
+                document.getElementById('currentDetectedFrequency').textContent = 'No Mic';
+            }
+        }, 100);
+    }
+
+    startProgressTracking() {
+        const startTime = Date.now();
+        const totalDuration = (this.musicSequence.totalScrollTime || 60) * 1000;
+
+        this.progressInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / totalDuration, 1);
+            
+            // Update progress bar
+            const progressFill = document.getElementById('gameProgressFill');
+            if (progressFill) {
+                progressFill.style.width = `${progress * 100}%`;
+            }
+
+            // Update time display
+            const progressTime = document.getElementById('progressTime');
+            const totalTime = document.getElementById('totalTime');
+            if (progressTime && totalTime) {
+                progressTime.textContent = this.formatTime(elapsed / 1000);
+                totalTime.textContent = this.formatTime(totalDuration / 1000);
+            }
+
+            // Send progress update to other players
+            this.socket.emit('player-progress-update', {
+                roomId: this.currentRoom.id,
+                userId: this.username,
+                progress: progress,
+                timestamp: Date.now()
+            });
+
+            // End game when complete
+            if (progress >= 1) {
+                this.endMultiplayerGame();
+            }
+        }, 1000);
+    }
+
+    setupRealtimePlayerUpdates() {
+        // Listen for other players' note updates
+        this.socket.on('player-note-update', (data) => {
+            if (data.userId !== this.username) {
+                // Update other player's display (could show their current note)
+                console.log(`${data.userId} played: ${data.note}`);
+            }
+        });
+
+        // Listen for other players' progress updates
+        this.socket.on('player-progress-update', (data) => {
+            if (data.userId !== this.username) {
+                const progressElement = document.getElementById(`progress-${data.userId}`);
+                if (progressElement) {
+                    progressElement.style.width = `${data.progress * 100}%`;
+                }
+            }
+        });
+
+        // Listen for accuracy updates
+        this.socket.on('player-accuracy-update', (data) => {
+            const accuracyElement = document.getElementById(`accuracy-${data.userId}`);
+            const scoreElement = document.getElementById(`score-${data.userId}`);
+            
+            if (accuracyElement) {
+                accuracyElement.textContent = `${data.accuracy.toFixed(1)}%`;
+            }
+            if (scoreElement) {
+                scoreElement.textContent = data.score.toString();
+            }
+        });
+    }
+
+    endMultiplayerGame() {
+        this.isGameActive = false;
+        
+        // Clear intervals
+        if (this.noteTrackingInterval) {
+            clearInterval(this.noteTrackingInterval);
+        }
+        if (this.progressInterval) {
+            clearInterval(this.progressInterval);
+        }
+
+        // End statistics session
+        if (window.noteStatistics) {
+            const gameStats = {
+                difficulty: 'multiplayer',
+                timePerNote: 5000,
+                score: this.calculateFinalScore(),
+                totalNotes: this.gameNotes.length,
+                correctNotes: this.calculateCorrectNotes(),
+                maxStreak: this.maxStreak || 0
+            };
+            window.noteStatistics.endSession(gameStats);
+        }
+
+        // Show final results
+        this.showMultiplayerResults();
+    }
+
+    calculateFinalScore() {
+        // Implementation for calculating final score
+        return 0; // Placeholder
+    }
+
+    calculateCorrectNotes() {
+        // Implementation for calculating correct notes
+        return 0; // Placeholder
+    }
+
+    showMultiplayerResults() {
+        // Create results overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'results-overlay';
+        overlay.innerHTML = `
+            <div class="results-content">
+                <h2>🎵 Game Complete!</h2>
+                <p>Calculating final results...</p>
+                <button id="backToWaitingRoom" class="btn btn-primary">Back to Room</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('backToWaitingRoom').addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            this.returnToWaitingRoom();
+        });
+    }
+
+    returnToWaitingRoom() {
+        // Remove multiplayer game screen
+        const gameScreen = document.getElementById('multiplayerGameScreen');
+        if (gameScreen) {
+            gameScreen.remove();
+        }
+
+        // Show waiting room screen
+        this.hideAllScreens();
+        this.waitingRoomScreen.classList.add('active');
+    }
+
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 }
 
