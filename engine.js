@@ -1,11 +1,11 @@
-let totalScrollTime = 80;
+let totalScrollTime = 40;
 let tempoMultiplier = 1.0;
 const quarterNoteSpacing = 60;
 const halfNoteSpacing = 120;
 const wholeNoteSpacing = 240;
 const screenWidth = window.innerWidth;
 const noteOffsetFromBar = 30;
-const judgmentLineX = 80;
+const judgmentLineX = 130;
 const judgmentTolerance = 30; // pixels tolerance for note judgment
 
 // Check if elements exist before using them
@@ -46,6 +46,7 @@ let currentNoteIndex = 0;
 let maxStreak = 0;
 let currentStreak = 0;
 let level = 1;
+let currentX = 0; // Initialize currentX for OpenSheetMusicDisplay compatibility
 
 // Metronome state
 let metronomeInterval = null;
@@ -57,7 +58,7 @@ let lastDetectedNote = null;
 let lastDetectionTime = 0;
 let noteDetectionHistory = [];
 const NOTE_CHANGE_THRESHOLD = 300; // ms to consider a "new" note
-const WRONG_NOTE_BUFFER_PERIOD = 400; // ms buffer before marking as wrong
+const WRONG_NOTE_BUFFER_PERIOD = 350; // ms buffer before marking as wrong
 const HIGH_CONFIDENCE_WINDOW = 300; // ms window to collect samples
 const MIN_CONFIDENCE_FOR_SAMPLE = 0.4; // minimum confidence to include in detection
 const SMOOTHING_WINDOW = 150; // ms for smoothing fluctuating detections
@@ -287,27 +288,35 @@ function startGame() {
   maxStreak = 0;
   
   // Start statistics session
-  if (noteStatistics) {
-    noteStatistics.startSession('medium', 5000); // Default difficulty and time per note
+  if (window.noteStatistics) {
+    window.noteStatistics.startSession('medium', 5000); // Default difficulty and time per note
+  } else {
+    console.warn('Note statistics not initialized');
   }
   
   // Start continuous pitch detection
   startPitchDetection();
   
-  // Animate scroll
-  const scrollDistance = currentX + 200;
-  const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
-  noteGroup.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
-  barLines.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
+  // Animate scroll - check if elements exist for custom SVG system
+  if (noteGroup && barLines) {
+    const scrollDistance = currentX + 200;
+    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
+    noteGroup.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
+    barLines.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
+  }
   
-  const style = document.createElement("style");
-  style.innerHTML = `
-    @keyframes scrollLeft {
-      from { transform: translateX(0); }
-      to { transform: translateX(-${scrollDistance}px); }
-    }
-  `;
-  document.head.appendChild(style);
+  // Only create scroll animation for custom SVG system
+  if (noteGroup && barLines) {
+    const scrollDistance = currentX + 200;
+    const style = document.createElement("style");
+    style.innerHTML = `
+      @keyframes scrollLeft {
+        from { transform: translateX(0); }
+        to { transform: translateX(-${scrollDistance}px); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
   
   showLevelText();
   
@@ -320,6 +329,12 @@ function gameLoop() {
   
   if (!isPaused) {
     checkNoteJudgments();
+    
+    // Continue scroll animation for OpenSheetMusicDisplay when not paused
+    const musicSheet = document.querySelector('#osmd-container svg');
+    if (musicSheet && musicSheet.style.animationPlayState === 'paused') {
+      musicSheet.style.animationPlayState = 'running';
+    }
   }
   
   animationId = requestAnimationFrame(gameLoop);
@@ -330,7 +345,7 @@ function checkNoteJudgments() {
   const elapsedTime = (currentTime - gameStartTime - totalPausedTime) / 1000;
   const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   const scrollProgress = elapsedTime / adjustedScrollSpeed;
-  const totalScrollDistance = currentX + 200;
+  const totalScrollDistance = Math.max(currentX + 200, 1000); // Fallback for OpenSheetMusicDisplay
   const currentScrollX = scrollProgress * totalScrollDistance;
   
   // Find the closest upcoming note for context
@@ -732,8 +747,6 @@ function startPitchDetection() {
 }
 
 function togglePause() {
-  if (!isGameRunning) return;
-  
   if (isPaused) {
     // Resume
     isPaused = false;
@@ -743,10 +756,19 @@ function togglePause() {
     // Calculate total paused time
     totalPausedTime += Date.now() - pausedTime;
     
-    // Resume animations
-    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
-    noteGroup.style.animationPlayState = 'running';
-    barLines.style.animationPlayState = 'running';
+    // Resume animations - check if elements exist first
+    if (noteGroup) {
+      noteGroup.style.animationPlayState = 'running';
+    }
+    if (barLines) {
+      barLines.style.animationPlayState = 'running';
+    }
+    
+    // For OpenSheetMusicDisplay, resume scrolling
+    const musicSheet = document.querySelector('#osmd-container svg');
+    if (musicSheet) {
+      musicSheet.style.animationPlayState = 'running';
+    }
   } else {
     // Pause
     isPaused = true;
@@ -754,9 +776,19 @@ function togglePause() {
     pauseBtn.classList.add('paused');
     pausedTime = Date.now();
     
-    // Pause animations
-    noteGroup.style.animationPlayState = 'paused';
-    barLines.style.animationPlayState = 'paused';
+    // Pause animations - check if elements exist first
+    if (noteGroup) {
+      noteGroup.style.animationPlayState = 'paused';
+    }
+    if (barLines) {
+      barLines.style.animationPlayState = 'paused';
+    }
+    
+    // For OpenSheetMusicDisplay, pause scrolling
+    const musicSheet = document.querySelector('#osmd-container svg');
+    if (musicSheet) {
+      musicSheet.style.animationPlayState = 'paused';
+    }
   }
 }
 
@@ -765,21 +797,23 @@ function updateTempo() {
   tempoValue.textContent = `${tempoMultiplier.toFixed(1)}x`;
   
   if (isGameRunning && !isPaused) {
-    // Update animation speed
-    const scrollDistance = currentX + 200;
-    const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
+    // Update animation speed - check if elements exist
+    if (noteGroup && barLines) {
+      const scrollDistance = currentX + 200;
+      const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
     
-    // Remove existing animations
-    noteGroup.style.animation = 'none';
-    barLines.style.animation = 'none';
-    
-    // Force reflow
-    noteGroup.offsetHeight;
-    barLines.offsetHeight;
-    
-    // Apply new animations
-    noteGroup.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
-    barLines.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
+      // Remove existing animations
+      noteGroup.style.animation = 'none';
+      barLines.style.animation = 'none';
+      
+      // Force reflow
+      noteGroup.offsetHeight;
+      barLines.offsetHeight;
+      
+      // Apply new animations
+      noteGroup.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
+      barLines.style.animation = `scrollLeft ${adjustedScrollSpeed}s linear infinite`;
+    }
   }
 }
 
@@ -797,15 +831,32 @@ function stopGame() {
     detectionInterval = null;
   }
   
-  // Stop animations
-  noteGroup.style.animation = 'none';
-  barLines.style.animation = 'none';
+  // Stop animations - check if elements exist first
+  if (noteGroup) {
+    noteGroup.style.animation = 'none';
+  }
+  if (barLines) {
+    barLines.style.animation = 'none';
+  }
+  
+  // For OpenSheetMusicDisplay, stop scrolling
+  const musicSheet = document.querySelector('#osmd-container svg');
+  if (musicSheet) {
+    musicSheet.style.animation = 'none';
+    musicSheet.classList.remove('scrolling-music');
+  }
   
   // Reset UI
-  pauseBtn.textContent = 'Pause';
-  pauseBtn.classList.remove('paused');
-  currentDetectedNote.textContent = '-';
-  currentDetectedFrequency.textContent = '- Hz';
+  if (pauseBtn) {
+    pauseBtn.textContent = 'Pause';
+    pauseBtn.classList.remove('paused');
+  }
+  if (currentDetectedNote) {
+    currentDetectedNote.textContent = '-';
+  }
+  if (currentDetectedFrequency) {
+    currentDetectedFrequency.textContent = '- Hz';
+  }
 }
 
 // Event listeners for new controls
@@ -835,7 +886,7 @@ function getFrequencyFromNote(noteName) {
 
 function calculateExpectedNoteTime(note) {
   // Calculate when this note should ideally be played based on scroll position
-  const scrollDistance = currentX + 200;
+  const scrollDistance = Math.max(currentX + 200, 1000); // Fallback for OpenSheetMusicDisplay
   const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   const timeToReachJudgmentLine = ((note.x - judgmentLineX) / scrollDistance) * adjustedScrollSpeed * 1000;
   return gameStartTime + timeToReachJudgmentLine;
@@ -882,6 +933,7 @@ async function endGameAndAnalyze() {
   
   if (!isGameRunning) {
     console.log('Game not running, cannot end');
+    alert('No active game session found. Please start a new game first.');
     return;
   }
   
@@ -1012,102 +1064,7 @@ async function endGameAndAnalyze() {
       
       // Still redirect to analytics page for basic analysis
       const sessionData = window.noteStatistics.getSessionDataForAnalysis();
-      window.location.href = `analytics.html?session=${sessionData.sessionId}`;
-    }
-  } else {
-    console.error('No statistics data available. Please start a new game.');
-    alert('No statistics data available. Please start a new game.');
-  }
-}
-      
-      // Show waiting message for other players
-      const waitingDiv = document.createElement('div');
-      waitingDiv.innerHTML = `
-        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
-          <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
-            <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
-            <h2 style="margin-bottom: 15px;">🎵 Waiting for Other Players...</h2>
-            <p>Your results have been submitted! Waiting for other players to finish.</p>
-            <div id="players-status" style="margin-top: 20px; font-size: 14px; color: #666;"></div>
-          </div>
-        </div>
-        <style>
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        </style>
-      `;
-      document.body.appendChild(waitingDiv);
-      
-      // Listen for other players finishing
-      window.socket.on('player-finished', (data) => {
-        const statusDiv = document.getElementById('players-status');
-        if (statusDiv) {
-          statusDiv.innerHTML = `${data.playersFinished}/${data.totalPlayers} players finished`;
-        }
-      });
-      
-      // Listen for game completion
-      window.socket.on('game-completed', (data) => {
-        document.body.removeChild(waitingDiv);
-        showMultiplayerResults(data.results, sessionData.sessionId);
-      });
-      
-      return;
-    }
-    
-    // Single player analysis
-    // Show loading message
-    const loadingDiv = document.createElement('div');
-    loadingDiv.innerHTML = `
-      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
-        <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
-          <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
-          <h2 style="margin-bottom: 15px;">🤖 Analyzing Your Performance...</h2>
-          <p>Our AI council is reviewing your session data and preparing detailed feedback.</p>
-        </div>
-      </div>
-      <style>
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
-    `;
-    document.body.appendChild(loadingDiv);
-    
-    try {
-      // Get session data for analysis
-      const sessionData = noteStatistics.getSessionDataForAnalysis();
-      
-      // Send to Cohere for analysis
-      const analysisResult = await window.cohereAnalytics.analyzeSession(sessionData);
-      
-      // Remove loading message
-      document.body.removeChild(loadingDiv);
-      
-      if (analysisResult.success) {
-        // Redirect to analytics page
-        window.location.href = `analytics.html?session=${sessionData.sessionId}`;
-      } else {
-        // Show error and redirect anyway with fallback analysis
-        alert('AI analysis temporarily unavailable. Showing basic analysis.');
-        window.location.href = `analytics.html?session=${sessionData.sessionId}`;
-      }
-      
-    } catch (error) {
-      // Remove loading message
-      if (document.body.contains(loadingDiv)) {
-        document.body.removeChild(loadingDiv);
-      }
-      
-      console.error('Analysis failed:', error);
-      alert('Analysis failed, but your session data has been saved. You can view basic statistics.');
-      
-      // Still redirect to analytics page for basic analysis
-      const sessionData = noteStatistics.getSessionDataForAnalysis();
-      window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+      window.location.href = `analytics.html?session=${sessionData.sessionId}&fallback=true`;
     }
   } else {
     alert('No statistics data available. Please start a new game.');

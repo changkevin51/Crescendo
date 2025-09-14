@@ -493,8 +493,12 @@ app.get('/main', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-    console.log(`🎵 Crescendo Waiting Room Server running on port ${PORT}`);
+const HOST = '0.0.0.0'; // Bind to all network interfaces
+
+server.listen(PORT, HOST, () => {
+    console.log(`🎵 Crescendo Waiting Room Server running on ${HOST}:${PORT}`);
     console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard`);
     console.log(`🏠 Waiting Room: http://localhost:${PORT}`);
+    console.log(`🌐 Network Access: http://[YOUR_LOCAL_IP]:${PORT}`);
+    console.log(`💡 To find your local IP, run: ipconfig | findstr "IPv4"`);
 });

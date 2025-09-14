@@ -38,19 +38,20 @@
           <input type="checkbox" id="metronome-checkbox">
           <label for="metronome-checkbox">Metronome</label>
         </div>
+        <div class="checkbox-control">
+          <input type="checkbox" id="note-labels-checkbox" checked>
+          <label for="note-labels-checkbox">Note Labels</label>
+        </div>
       </div>
       
       <div class="game-controls">
+        <button id="generate-melody-btn" class="control-btn">Generate Melody</button>
         <button id="pause-btn" class="control-btn">Pause</button>
         <button id="end-game-btn" class="control-btn end-game">End Game & Analyze</button>
         <div class="tempo-control">
           <label for="tempo-slider">Tempo:</label>
           <input type="range" id="tempo-slider" min="0.5" max="3" step="0.1" value="1">
           <span id="tempo-value">1.0x</span>
-        </div>
-        <div class="note-label-toggle">
-          <label for="note-labels-checkbox">Note Labels:</label>
-          <input type="checkbox" id="note-labels-checkbox" checked>
         </div>
       </div>
     </div>
@@ -84,26 +85,25 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      left: 100px;
+      left: 160px;
       width: 3px;
       background: red;
       z-index: 10;
       pointer-events: none;
     }
-
-
   </style>
   <script src="https://unpkg.com/meyda@5.6.3/dist/web/meyda.min.js"></script>
   <script src="pitch-detector.js"></script>
   <script src="note_statistics.js"></script>
   <script src="cohere-analytics.js"></script>
+  <script src="melody-generator.js"></script>
   <script src="engine.js"></script>
   <script>
     // Game state variables - removed duplicate declarations that exist in engine.js
     let animationDuration = 60; // seconds
     
     // Note detection constants - using engine.js values for better accuracy
-    const JUDGMENT_LINE_X = 100; // pixels from left where notes are judged
+    const JUDGMENT_LINE_X = 130; // pixels from left where notes are judged
     const JUDGMENT_TOLERANCE = 50; // pixels tolerance for note judgment
     // Use constants from engine.js - don't redeclare them
     // const MIN_CONFIDENCE_FOR_SAMPLE, NOTE_CHANGE_THRESHOLD, etc. are in engine.js
@@ -117,17 +117,78 @@
     });
 
     async function renderMusicXML() {
-      // Load your MusicXML file (must be served over HTTP)
-      await osmd.load("3.1.a.Fur_Elise.xml"); // Make sure this file is in the same folder
+      try {
+        // Show loading state while preserving judgment line
+        const container = document.getElementById('osmd-container');
+        const judgmentLine = container.querySelector('.judgment-line');
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px;">
+            <div style="font-size: 18px; margin-bottom: 10px;">🎵 Generating Random Melody...</div>
+            <div style="font-size: 14px; color: #666;">Please wait while Cohere creates a new melody for you!</div>
+          </div>
+        `;
+        if (judgmentLine) {
+          container.appendChild(judgmentLine);
+        }
 
-      // Force all music to be in a single horizontal line
-      osmd.EngravingRules.PageWidth = 5000; // Big enough to fit the whole piece
-      osmd.EngravingRules.RenderSingleHorizontalStaffline = true;
+        // Generate random melody using Cohere
+        const melodyResult = await window.melodyGenerator.generateRandomMelody();
+        
+        if (melodyResult.success) {
+          console.log('🎵 Successfully generated melody:', melodyResult.melody);
+          
+          // Save the generated XML and create a blob URL
+          const xmlResult = await window.melodyGenerator.saveMelodyAsXML(melodyResult.musicXML);
+          
+          if (xmlResult.success) {
+            // Load the generated melody XML
+            await osmd.load(xmlResult.url);
+          } else {
+            throw new Error('Failed to create melody XML');
+          }
+        } else {
+          console.warn('🎵 Using fallback melody due to generation failure');
+          // Use fallback melody
+          const fallbackXML = window.melodyGenerator.convertToMusicXML(melodyResult.fallbackMelody);
+          const xmlResult = await window.melodyGenerator.saveMelodyAsXML(fallbackXML);
+          await osmd.load(xmlResult.url);
+        }
 
-      osmd.render();
-      
-      // Start scrolling after rendering
-      startScrolling();
+        // Clear loading content before rendering
+        container.innerHTML = '';
+        
+        // Force all music to be in a single horizontal line
+        osmd.EngravingRules.PageWidth = 5000; // Big enough to fit the whole piece
+        osmd.EngravingRules.RenderSingleHorizontalStaffline = true;
+
+        osmd.render();
+        
+        // Restore judgment line after rendering
+        const newContainer = document.getElementById('osmd-container');
+        if (!newContainer.querySelector('.judgment-line')) {
+          const newJudgmentLine = document.createElement('div');
+          newJudgmentLine.className = 'judgment-line';
+          newContainer.appendChild(newJudgmentLine);
+        }
+        
+        // Start scrolling after rendering
+        startScrolling();
+        
+      } catch (error) {
+        console.error('🎵 Failed to render music:', error);
+        const errorContainer = document.getElementById('osmd-container');
+        const judgmentLine = errorContainer.querySelector('.judgment-line');
+        errorContainer.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: red;">
+            <div style="font-size: 18px; margin-bottom: 10px;">❌ Failed to Generate Melody</div>
+            <div style="font-size: 14px;">Error: ${error.message}</div>
+            <button onclick="renderMusicXML()" style="margin-top: 20px; padding: 10px 20px;">Try Again</button>
+          </div>
+        `;
+        if (judgmentLine) {
+          errorContainer.appendChild(judgmentLine);
+        }
+      }
     }
 
     function startScrolling() {
@@ -463,29 +524,37 @@
         lastDetectionTime = currentTime;
       }
       
-      // Use smoothed detection with lower requirements
-      if (note.highConfidenceSamples.length >= 2) { // Reduced from 3 to 2
+      // Use smoothed detection with stricter requirements for correct notes
+      if (note.highConfidenceSamples.length >= 3) { // Require more samples
         const smoothedResult = getSmoothedNote(note.highConfidenceSamples, currentTime);
         
-        if (smoothedResult && smoothedResult.sampleCount >= 2) {
+        if (smoothedResult && smoothedResult.sampleCount >= 3) {
           // Check if the smoothed note matches the expected note
           if (smoothedResult.note === expectedNoteName) {
-            // Check for reasonable confidence and pitch accuracy
-            const goodSamples = note.highConfidenceSamples
+            // Require consistent high confidence samples for correct judgment
+            const recentCorrectSamples = note.highConfidenceSamples
               .filter(s => s.note === expectedNoteName)
-              .filter(s => s.confidence > 0.3 && s.cents < 75); // More lenient
+              .filter(s => currentTime - s.time <= 200) // More recent samples
+              .filter(s => s.confidence > 0.5 && s.cents < 50); // Higher confidence and accuracy
             
-            if (goodSamples.length >= 1 && smoothedResult.confidence > 0.3) {
+            // Require at least 3 consistent samples in the last 200ms
+            if (recentCorrectSamples.length >= 3 && smoothedResult.confidence > 0.6) {
               markNoteCorrect(note);
               return;
             }
           } else {
-            // Different note detected - start buffer period or mark wrong
-            if (!note.wrongDetectionTime && smoothedResult.confidence > 0.5) {
+            // Different note detected - start buffer period with longer delay
+            if (!note.wrongDetectionTime && smoothedResult.confidence > 0.6) {
               note.wrongDetectionTime = currentTime;
               note.inBufferPeriod = true;
-            } else if (note.wrongDetectionTime && currentTime - note.wrongDetectionTime > 400) {
-              if (smoothedResult.confidence > 0.4) {
+            } else if (note.wrongDetectionTime && currentTime - note.wrongDetectionTime > 800) { // Longer buffer
+              // Only mark wrong if consistently detecting wrong note
+              const recentWrongSamples = note.highConfidenceSamples
+                .filter(s => s.time >= note.wrongDetectionTime)
+                .filter(s => s.note !== expectedNoteName)
+                .filter(s => s.confidence > 0.5);
+              
+              if (recentWrongSamples.length >= 4 && smoothedResult.confidence > 0.5) {
                 markNoteWrong(note, smoothedResult.note);
                 return;
               }
@@ -501,23 +570,24 @@
           s => s.time >= note.wrongDetectionTime && s.note === expectedNoteName
         );
         
-        if (bufferSamples.length >= 1) { // More lenient
+        // Require consistent correct detection during buffer period
+        if (bufferSamples.length >= 3) {
           const bufferSmoothed = getSmoothedNote(bufferSamples, currentTime);
-          if (bufferSmoothed && bufferSmoothed.note === expectedNoteName && bufferSmoothed.confidence > 0.3) {
+          if (bufferSmoothed && bufferSmoothed.note === expectedNoteName && bufferSmoothed.confidence > 0.6) {
             markNoteCorrect(note);
             return;
           }
         }
         
-        // If buffer period expired, mark as wrong
-        if (currentTime - note.wrongDetectionTime > 400) {
+        // If buffer period expired, mark as wrong only with strong evidence
+        if (currentTime - note.wrongDetectionTime > 800) {
           const wrongSamples = note.highConfidenceSamples.filter(
             s => s.time >= note.wrongDetectionTime && s.note !== expectedNoteName
           );
           
-          if (wrongSamples.length > 0) {
+          if (wrongSamples.length >= 4) {
             const wrongSmoothed = getSmoothedNote(wrongSamples, currentTime);
-            if (wrongSmoothed && wrongSmoothed.confidence > 0.4) {
+            if (wrongSmoothed && wrongSmoothed.confidence > 0.5) {
               markNoteWrong(note, wrongSmoothed.note);
             }
           }
@@ -581,6 +651,25 @@
     }
 
     // Event listeners for controls
+    document.getElementById('generate-melody-btn').addEventListener('click', async () => {
+      // Stop current game if running
+      if (isGameRunning) {
+        isGameRunning = false;
+        if (detectionInterval) {
+          clearInterval(detectionInterval);
+        }
+      }
+      
+      // Reset scores
+      correctCount = 0;
+      wrongCount = 0;
+      missedCount = 0;
+      updateScoreDisplay();
+      
+      // Generate new melody
+      await renderMusicXML();
+    });
+
     document.getElementById('pause-btn').addEventListener('click', () => {
       if (isPaused) {
         resumeScrolling();

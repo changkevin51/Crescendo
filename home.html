@@ -380,11 +380,11 @@
         </div>
 
         <div class="game-options">
-            <button class="option-button" onclick="startSinglePlayer()">
+            <button class="option-button" onclick="window.location.href='main.html'">
                 Single Player
             </button>
             
-            <!-- Added multiplayer-button class and updated ID -->
+            <!-- Added multiplayer-button  and updated ID -->
             <button class="option-button multiplayer-button" id="multiplayerBtn" onclick="toggleMultiplayer()">
                 Multiplayer
             </button>
@@ -423,11 +423,6 @@
     </div>
 
     <script>
-        function startSinglePlayer() {
-            // Redirect to main.html for single player game
-            window.location.href = 'main.html';
-        }
-
         function toggleMultiplayer() {
             const options = document.getElementById('multiplayerOptions');
             const btn = document.getElementById('multiplayerBtn');

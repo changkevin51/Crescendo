@@ -325,11 +325,11 @@ h1 {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 100px;
+  left: 160px;
   width: 3px;
   background: linear-gradient(180deg, var(--accent-error), #dc2626);
   z-index: 10;
-  border-radius: 2px;
+  border-radius: 2px; 
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
 }
 
@@ -494,9 +494,6 @@ h1 {
     margin: 24px auto;
   }
 
-  .judgment-line {
-    left: 80px;
-  }
 
   .note-names {
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));

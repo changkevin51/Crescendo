@@ -98,7 +98,7 @@ class CohereAnalytics {
             ? (timingEvents.reduce((sum, e) => sum + e.timingAnalysis.timingAccuracy, 0) / timingEvents.length).toFixed(0)
             : 0;
 
-        return `You are a panel of 3 expert music instructors analyzing a student's musical performance. Please provide a detailed analysis as if you are 3 council members judging their progress:
+        return `You are a panel of 3 expert music instructors analyzing a student's musical performance. Each judge has a DISTINCT specialty and perspective. Provide analysis as 3 DIFFERENT council members:
 
 **PERFORMANCE DATA:**
 - Session Duration: ${Math.round(gameSession.sessionDuration / 1000)} seconds
@@ -130,21 +130,21 @@ Note ${i + 1} [${event.targetNoteString || 'Unknown'}]:
 - Expected: ${event.targetNoteString} | Detected: ${event.detectedNoteString || 'None'}
 `).join('')}
 
-Please provide your analysis in the following format:
+Please provide your analysis in the following format with DISTINCT perspectives:
 
 ## 🎼 COUNCIL ASSESSMENT
 
-### 👨‍🏫 **PITCH ACCURACY JUDGE**
-[Detailed analysis of pitch accuracy, intonation, and note recognition skills]
+### 👨‍🏫 **PITCH ACCURACY JUDGE** (Lord of Harmony - Classical Perfectionist)
+[Focus ONLY on pitch accuracy, intonation, note recognition. Be technical and precise. Mention specific cents deviation, frequency accuracy, and classical technique. Give this judge a formal, academic tone.]
 
-### ⏰ **RHYTHM & TIMING JUDGE** 
-[Detailed analysis of timing, rhythm consistency, and whether they play early/late]
+### ⏰ **RHYTHM & TIMING JUDGE** (DJ Tempo - Modern Beat Master)
+[Focus ONLY on timing, rhythm, groove, and tempo. Use modern music terminology. Be energetic and focus on "the pocket", "groove", and "feel". Give this judge a contemporary, energetic tone.]
 
-### 🎵 **OVERALL PERFORMANCE JUDGE**
-[Holistic assessment combining all aspects, strengths, and areas for improvement]
+### 🎵 **OVERALL PERFORMANCE JUDGE** (The Vibe Judge - Holistic Musicality Expert)
+[Focus on musicality, expression, dynamics, and overall musical communication. Consider the emotional and artistic aspects. Be encouraging but insightful about musical storytelling. Give this judge a warm, artistic tone.]
 
 ## 📊 PERFORMANCE SUMMARY
-- **Overall Grade:** [A+/A/B+/B/C+/C/D/F]
+- **Overall Grade:** [Calculate based on accuracy: 90%+=A+, 85%+=A, 80%+=B+, 75%+=B, 70%+=C+, 65%+=C, 60%+=D+, 55%+=D, <55%=F]
 - **Key Strengths:** [2-3 bullet points]
 - **Areas for Improvement:** [2-3 bullet points]
 - **Practice Recommendations:** [Specific actionable advice]
@@ -152,7 +152,7 @@ Please provide your analysis in the following format:
 ## 🎯 NEXT STEPS
 [Concrete suggestions for continued improvement]
 
-Make the analysis encouraging but honest, focusing on specific actionable feedback based on the data provided.`;
+IMPORTANT: Each judge must have a COMPLETELY DIFFERENT perspective and tone. Make the analysis encouraging but honest, with specific feedback based on the data.`;
     }
 
     generateFallbackAnalysis(sessionData) {
@@ -323,7 +323,7 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
 
     renderAnalysis(container, analysisText, sessionSummary, isMultiplayer = false) {
         // Parse the analysis text to extract judge sections
-        const sections = this.parseAnalysisText(analysisText);
+        const sections = this.parseAnalysisText(analysisText, sessionSummary);
         
         // Calculate proper accuracy from sessionSummary
         const accuracy = sessionSummary.totalNotes > 0 ? 
@@ -357,7 +357,7 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
                     return `Rhythm needs focused work - ${rhythmConsistency.toFixed(1)}% consistency. ${isEarly ? 'You\'re anticipating beats too much.' : isLate ? 'You\'re consistently behind the pulse.' : 'Timing is inconsistent.'} Start with simple quarter note patterns and build up complexity.`;
                 }
             } else { // overall
-                const overallGrade = accuracy >= 80 ? 'A-' : accuracy >= 70 ? 'B+' : accuracy >= 60 ? 'B-' : accuracy >= 50 ? 'C+' : 'C';
+                const overallGrade = this.calculateGradeFromAccuracy(sessionSummary);
                 return `Overall performance earns a ${overallGrade}. With ${correctNotes}/${totalNotes} notes correct and ${(rhythmData.rhythmConsistency || 0).toFixed(1)}% rhythm consistency, you're ${accuracy >= 70 ? 'showing strong musical understanding' : 'building your foundation well'}. ${accuracy >= 80 ? 'Ready for more challenging pieces!' : accuracy >= 60 ? 'Focus on the fundamentals and you\'ll improve quickly.' : 'Take your time with basics - every musician started here.'}`;
             }
         };
@@ -422,7 +422,7 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
                 
                 <div class="summary-section">
                     <div class="grade-display">
-                        <span class="grade-letter">${sections.grade || 'B+'}</span>
+                        <span class="grade-letter">${sections.grade || this.calculateGradeFromAccuracy(sessionSummary)}</span>
                         <span class="grade-text">Overall Performance Grade</span>
                     </div>
                     
@@ -461,12 +461,12 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
         `;
     }
 
-    parseAnalysisText(analysisText) {
+    parseAnalysisText(analysisText, sessionSummary) {
         const sections = {
             pitchJudge: '',
             rhythmJudge: '',
             overallJudge: '',
-            grade: 'B+',
+            grade: '',  // Will be calculated from accuracy
             strengths: [],
             improvements: [],
             nextSteps: ''
@@ -492,6 +492,11 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
         const gradeMatch = analysisText.match(/\*\*Overall Grade:\*\*\s*\[([^\]]+)\]/);
         if (gradeMatch) {
             sections.grade = gradeMatch[1];
+        }
+        
+        // If no grade found in analysis, calculate from accuracy
+        if (!sections.grade) {
+            sections.grade = this.calculateGradeFromAccuracy(sessionSummary);
         }
 
         // Extract strengths
@@ -534,6 +539,22 @@ ${rhythmAnalysis.tendencyToBeEarly ? '⚡ Tendency to rush - practice with metro
         }
 
         return sections;
+    }
+
+    calculateGradeFromAccuracy(sessionSummary) {
+        const totalNotes = sessionSummary.totalNotes || 0;
+        const correctNotes = sessionSummary.correctNotes || 0;
+        const accuracy = totalNotes > 0 ? (correctNotes / totalNotes) * 100 : 0;
+        
+        if (accuracy >= 90) return 'A+';
+        if (accuracy >= 85) return 'A';
+        if (accuracy >= 80) return 'B+';
+        if (accuracy >= 75) return 'B';
+        if (accuracy >= 70) return 'C+';
+        if (accuracy >= 65) return 'C';
+        if (accuracy >= 60) return 'D+';
+        if (accuracy >= 55) return 'D';
+        return 'F';
     }
 
     cleanText(text) {
