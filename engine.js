@@ -333,8 +333,15 @@ function checkNoteJudgments() {
     // More lenient judgment zone - check if note is anywhere close
     const extendedTolerance = judgmentTolerance * 1.5;
     
+    // Debug logging for note positions
+    const distanceToJudgment = Math.abs(noteCurrentX - judgmentLineX);
+    if (distanceToJudgment <= extendedTolerance * 2) {
+      console.log(`Note ${note.noteName} at distance ${distanceToJudgment.toFixed(1)} from judgment line (tolerance: ${extendedTolerance})`);
+    }
+    
     // Check if note is in extended judgment zone
     if (Math.abs(noteCurrentX - judgmentLineX) <= extendedTolerance) {
+      console.log(`Judging note ${note.noteName} in judgment zone`);
       judgeNote(note, closestUpcomingNote);
     }
     // Check if note has passed judgment line significantly (missed)
@@ -386,6 +393,13 @@ function judgeNote(note, closestUpcomingNote = null) {
   const expectedOctave = parseInt(note.noteName.match(/[0-9]/)[0]);
   const expectedFrequency = getFrequencyFromNote(note.noteName);
   
+  // Debug logging
+  if (pitchData) {
+    console.log(`Judging note ${note.noteName}: detected ${pitchData.frequency.toFixed(1)}Hz, confidence ${pitchData.confidence.toFixed(2)}, volume ${pitchData.volume.toFixed(1)}`);
+  } else {
+    console.log(`Judging note ${note.noteName}: no pitch data detected`);
+  }
+  
   // Start note tracking if not already started
   if (!note.statisticsStarted && noteStatistics) {
     const expectedTimestamp = calculateExpectedNoteTime(note);
@@ -417,6 +431,7 @@ function judgeNote(note, closestUpcomingNote = null) {
   if (pitchData && pitchData.confidence >= MIN_CONFIDENCE_FOR_SAMPLE && pitchData.volume > 5) {
     const detectedNote = pitchDetector.frequencyToNote(pitchData.frequency);
     const detectedNoteName = detectedNote.note;
+    console.log(`Adding sample: ${detectedNoteName} (conf: ${pitchData.confidence.toFixed(2)}, vol: ${pitchData.volume.toFixed(1)}) for note ${note.noteName}`);
     
     // Add to samples for this specific note
     note.highConfidenceSamples.push({
@@ -452,10 +467,12 @@ function judgeNote(note, closestUpcomingNote = null) {
   // Use smoothed detection with lower requirements
   if (note.highConfidenceSamples.length >= 2) { // Reduced from 3 to 2
     const smoothedResult = getSmoothedNote(note.highConfidenceSamples, currentTime);
+    console.log(`Note ${note.noteName} has ${note.highConfidenceSamples.length} samples, smoothed result:`, smoothedResult);
     
     if (smoothedResult && smoothedResult.sampleCount >= 2) {
       // Check if the smoothed note matches the expected note
       if (smoothedResult.note === expectedNoteName) {
+        console.log(`Correct note detected: ${smoothedResult.note} matches expected ${expectedNoteName}`);
         // Additional check: make sure this note is actually the closest one to judge
         if (!closestUpcomingNote || closestUpcomingNote === note) {
           // Check for reasonable confidence and pitch accuracy
@@ -794,7 +811,7 @@ function getFrequencyFromNote(noteName) {
 function calculateExpectedNoteTime(note) {
   // Calculate when this note should ideally be played based on scroll position
   const scrollDistance = currentX + 200;
-  const adjustedScrollSpeed = scrollSpeedSeconds / tempoMultiplier;
+  const adjustedScrollSpeed = totalScrollTime / tempoMultiplier;
   const timeToReachJudgmentLine = ((note.x - judgmentLineX) / scrollDistance) * adjustedScrollSpeed * 1000;
   return gameStartTime + timeToReachJudgmentLine;
 }
