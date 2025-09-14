@@ -841,28 +841,69 @@ function calculateExpectedNoteTime(note) {
   return gameStartTime + timeToReachJudgmentLine;
 }
 
+// Setup multiplayer synchronized session
+function setupMultiplayerSession(roomId, syncStartTime) {
+  // Connect to server for multiplayer coordination
+  if (!window.socket) {
+    window.socket = io();
+  }
+  
+  // Request the synchronized music sequence from server
+  window.socket.emit('get-room-music-sequence', { roomId });
+  
+  window.socket.on('room-music-sequence', (data) => {
+    if (data.musicSequence && window.game) {
+      // Set the synchronized music sequence
+      window.game.setMultiplayerSequence(data.musicSequence, syncStartTime);
+    }
+  });
+}
+
+// Initialize global variables and analytics
+function initializeGlobals() {
+  // Initialize global analytics instance
+  if (!window.cohereAnalytics) {
+    window.cohereAnalytics = new CohereAnalytics();
+  }
+  
+  // Initialize global statistics instance
+  if (!window.noteStatistics) {
+    window.noteStatistics = new NoteStatistics();
+  }
+  
+  // Initialize global pitch detector
+  if (!window.pitchDetector) {
+    window.pitchDetector = new PitchDetector();
+  }
+}
+
 async function endGameAndAnalyze() {
-  if (!isGameRunning) return;
+  console.log('🎮 End Game & Analyze button clicked!');
+  
+  if (!isGameRunning) {
+    console.log('Game not running, cannot end');
+    return;
+  }
   
   // Stop the game
   stopGame();
   
   // End statistics session
-  if (noteStatistics) {
+  if (window.noteStatistics) {
     const gameStats = {
       difficulty: 'medium',
       timePerNote: 5000,
       score: correctCount * 100,
-      totalNotes: correctCount + wrongCount + missedCount, // Use actual count of judged notes
+      totalNotes: correctCount + wrongCount + missedCount,
       correctNotes: correctCount,
       wrongNotes: wrongCount,
       missedNotes: missedCount,
       maxStreak: maxStreak
     };
     
-    console.log(' Game Stats:', gameStats);
+    console.log('🎮 Game Stats:', gameStats);
     
-    noteStatistics.endSession(gameStats);
+    window.noteStatistics.endSession(gameStats);
     
     // Check if this is a multiplayer session
     const urlParams = new URLSearchParams(window.location.search);
@@ -872,7 +913,7 @@ async function endGameAndAnalyze() {
     if (isMultiplayer) {
       // Submit results to multiplayer room
       const accuracy = gameStats.totalNotes > 0 ? (gameStats.correctNotes / gameStats.totalNotes * 100) : 0;
-      const sessionData = noteStatistics.getSessionDataForAnalysis();
+      const sessionData = window.noteStatistics.getSessionDataForAnalysis();
       
       window.socket.emit('submit-game-result', {
         roomId: roomId,
@@ -883,6 +924,101 @@ async function endGameAndAnalyze() {
         maxStreak: gameStats.maxStreak,
         sessionId: sessionData.sessionId
       });
+      
+      // Show waiting message for other players
+      const waitingDiv = document.createElement('div');
+      waitingDiv.innerHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
+          <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
+            <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #10b981; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
+            <h2 style="margin-bottom: 15px;">🎵 Waiting for Other Players...</h2>
+            <p>Your results have been submitted! Waiting for other players to finish.</p>
+            <div id="players-status" style="margin-top: 20px; font-size: 14px; color: #666;"></div>
+          </div>
+        </div>
+        <style>
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        </style>
+      `;
+      document.body.appendChild(waitingDiv);
+      
+      // Listen for other players finishing
+      window.socket.on('player-finished', (data) => {
+        const statusDiv = document.getElementById('players-status');
+        if (statusDiv) {
+          statusDiv.innerHTML = `${data.playersFinished}/${data.totalPlayers} players finished`;
+        }
+      });
+      
+      // Listen for game completion
+      window.socket.on('game-completed', (data) => {
+        document.body.removeChild(waitingDiv);
+        showMultiplayerResults(data.results, sessionData.sessionId);
+      });
+      
+      return;
+    }
+    
+    // Single player analysis
+    // Show loading message
+    const loadingDiv = document.createElement('div');
+    loadingDiv.innerHTML = `
+      <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; color: white; font-family: Inter, sans-serif;">
+        <div style="text-align: center; background: white; color: #333; padding: 40px; border-radius: 20px; max-width: 500px;">
+          <div style="width: 60px; height: 60px; border: 4px solid #e2e8f0; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
+          <h2 style="margin-bottom: 15px;">🤖 Analyzing Your Performance...</h2>
+          <p>Our AI council is reviewing your session data and preparing detailed feedback.</p>
+        </div>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(loadingDiv);
+    
+    try {
+      // Get session data for analysis
+      const sessionData = window.noteStatistics.getSessionDataForAnalysis();
+      
+      // Send to Cohere for analysis
+      const analysisResult = await window.cohereAnalytics.analyzeSession(sessionData);
+      
+      // Remove loading message
+      document.body.removeChild(loadingDiv);
+      
+      if (analysisResult.success) {
+        // Redirect to analytics page
+        window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+      } else {
+        // Show error and redirect anyway with fallback analysis
+        alert('AI analysis temporarily unavailable. Showing basic analysis.');
+        window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+      }
+      
+    } catch (error) {
+      // Remove loading message
+      if (document.body.contains(loadingDiv)) {
+        document.body.removeChild(loadingDiv);
+      }
+      
+      console.error('Analysis failed:', error);
+      alert('Analysis failed, but your session data has been saved. You can view basic statistics.');
+      
+      // Still redirect to analytics page for basic analysis
+      const sessionData = window.noteStatistics.getSessionDataForAnalysis();
+      window.location.href = `analytics.html?session=${sessionData.sessionId}`;
+    }
+  } else {
+    console.error('No statistics data available. Please start a new game.');
+    alert('No statistics data available. Please start a new game.');
+  }
+}
       
       // Show waiting message for other players
       const waitingDiv = document.createElement('div');
